@@ -40,6 +40,7 @@ All math weights, storage mechanisms, and risk limits are externalized within **
 * **[04. Behavioral Design Patterns](docs/02_design_patterns/behavioral_patterns.md)**: Covers Template Method, Strategy, and Observer notifier loops.
 * **[05. Domain Model & Boundaries](docs/03_domain_model.md)**: Outlines Aggregate Roots, Value Objects, and Thread-Safety locks.
 * **[06. Infrastructure Dependencies](docs/04_infrastructure_deps.md)**: Details settings file variables, caching, and DTO marshallers.
+* **[07. Codebase Class Reference Guide](docs/05_class_reference.md)**: Class-by-class declaration, definitions, and roles guide.
 
 ---
 
