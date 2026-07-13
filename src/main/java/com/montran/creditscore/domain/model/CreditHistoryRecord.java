@@ -2,6 +2,7 @@ package com.montran.creditscore.domain.model;
 
 import java.util.Date;
 import java.util.UUID;
+import com.montran.creditscore.domain.exception.InvalidCreditDataException;
 
 /**
  * @docs A Domain Value Object representing an immutable financial transaction
@@ -54,7 +55,7 @@ public final class CreditHistoryRecord {
             throw new IllegalArgumentException("Transaction settlement status cannot be null.");
         }
         if (amount < 0.0) {
-            throw new IllegalArgumentException("Historical financial transaction amount cannot be negative.");
+            throw new InvalidCreditDataException("Historical financial transaction amount cannot be negative.");
         }
 
         this.transactionId = (transactionId != null && !transactionId.trim().isEmpty()) ? transactionId

@@ -202,7 +202,7 @@ public User(String ssn, String name, String address, String email, double totalC
         throw new IllegalArgumentException("A unique, non-blank SSN identifier is mandatory.");
     }
     if (totalCreditLimit <= 0) {
-        throw new IllegalArgumentException("Total credit limit must be greater than zero.");
+        throw new InvalidCreditDataException("Total credit limit must be greater than zero.");
     }
     this.ssn = ssn;
     this.name = name;
@@ -228,7 +228,7 @@ public CreditHistoryRecord(String transactionId, Date dueDate, Date settlementDa
         throw new IllegalArgumentException("Transaction settlement status cannot be null.");
     }
     if (amount < 0.0) {
-        throw new IllegalArgumentException("Historical financial transaction amount cannot be negative.");
+        throw new InvalidCreditDataException("Historical financial transaction amount cannot be negative.");
     }
     this.transactionId = (transactionId != null && !transactionId.trim().isEmpty()) ? transactionId : UUID.randomUUID().toString();
     this.dueDate = new Date(dueDate.getTime());

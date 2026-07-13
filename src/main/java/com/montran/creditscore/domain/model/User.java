@@ -3,6 +3,7 @@ package com.montran.creditscore.domain.model;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import com.montran.creditscore.domain.exception.InvalidCreditDataException;
 
 /**
  * @docs Domain Aggregate Root representing a distinct client entity within the
@@ -71,7 +72,7 @@ public class User {
             throw new IllegalArgumentException("A unique, non-blank SSN identifier is mandatory.");
         }
         if (totalCreditLimit <= 0) {
-            throw new IllegalArgumentException("Total credit limit must be greater than zero.");
+            throw new InvalidCreditDataException("Total credit limit must be greater than zero.");
         }
         this.ssn = ssn;
         this.name = name;

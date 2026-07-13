@@ -10,6 +10,7 @@ import com.montran.creditscore.infrastructure.config.PropertyWeightLoader;
 import com.montran.creditscore.service.calculation.ScoreFormula;
 import com.montran.creditscore.service.calculation.WeightedScoreFormula;
 import com.montran.creditscore.service.risk.RiskClassifier;
+import com.montran.creditscore.domain.exception.UserNotFoundException;
 
 import java.util.Optional;
 
@@ -76,7 +77,7 @@ public class CreditScoreEngine {
         }
 
         User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new IllegalArgumentException("User with SSN " + ssn + " not found."));
+                .orElseThrow(() -> new UserNotFoundException(ssn));
 
         user.addCreditRecord(record);
         userStore.save(user);
@@ -91,7 +92,7 @@ public class CreditScoreEngine {
      */
     public void evaluateProfile(String ssn) {
         User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new IllegalArgumentException("User with SSN " + ssn + " not found."));
+                .orElseThrow(() -> new UserNotFoundException(ssn));
 
         // Capture previous state to evaluate operational deltas
         double previousScore = user.getCreditScore();
@@ -145,7 +146,7 @@ public class CreditScoreEngine {
      */
     public void editUser(String ssn, String newName, String newAddress, String newEmail) {
         User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new IllegalArgumentException("User with SSN " + ssn + " not found."));
+                .orElseThrow(() -> new UserNotFoundException(ssn));
         user.updateProfile(newName, newAddress, newEmail);
         userStore.save(user);
     }
@@ -157,7 +158,7 @@ public class CreditScoreEngine {
      */
     public void deleteTransaction(String ssn, String transactionId) {
         User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new IllegalArgumentException("User with SSN " + ssn + " not found."));
+                .orElseThrow(() -> new UserNotFoundException(ssn));
         boolean removed = user.removeCreditRecord(transactionId);
         if (removed) {
             userStore.save(user);
@@ -173,7 +174,7 @@ public class CreditScoreEngine {
      */
     public void editTransaction(String ssn, String transactionId, CreditHistoryRecord updatedRecord) {
         User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new IllegalArgumentException("User with SSN " + ssn + " not found."));
+                .orElseThrow(() -> new UserNotFoundException(ssn));
         boolean updated = user.updateCreditRecord(transactionId, updatedRecord);
         if (updated) {
             userStore.save(user);
