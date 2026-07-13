@@ -45,6 +45,20 @@ classDiagram
         +isDefaulted() boolean
     }
 
+    class ScoreConfiguration {
+        -int utilizationWeight
+        -int paymentHistoryWeight
+        -int creditAgeWeight
+        -int creditTypesWeight
+        -int recentInquiriesWeight
+        +ScoreConfiguration(utilizationWeight, paymentHistoryWeight, creditAgeWeight, creditTypesWeight, recentInquiriesWeight)
+        +getUtilizationWeight() int
+        +getPaymentHistoryWeight() int
+        +getCreditAgeWeight() int
+        +getCreditTypesWeight() int
+        +getRecentInquiriesWeight() int
+    }
+
     class RiskLevel {
         <<enumeration>>
         LOW
@@ -90,6 +104,11 @@ The `User` class acts as the **Aggregate Root** of its domain boundary.
 An immutable value object representing a financial transaction log.
 * **Equality**: Defined entirely by the values of its attributes (`date`, `transactionType`, `amount`, `status`) rather than a database ID.
 * **Immutability**: Designed to be thread-safe and read-only. Once instantiated, its properties cannot be changed.
+
+### C. Value Object: `ScoreConfiguration`
+An immutable value object representing mathematical configurations used to calculate user credit scores.
+* **Equality**: Defined entirely by the combination of its five weights (`utilizationWeight`, `paymentHistoryWeight`, `creditAgeWeight`, `creditTypesWeight`, `recentInquiriesWeight`).
+* **Immutability**: Enforces a strictly read-only design with private final fields and no setters, making it safe to share across concurrent calculation tasks.
 
 ---
 

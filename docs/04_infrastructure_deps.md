@@ -54,7 +54,22 @@ application {
 ## 2. Configuration Settings
 
 ### Settings Properties File: `src/main/resources/credit-settings.properties`
-This is a standard Java properties configuration file designed to store runtime environment variables. It currently acts as an extensible placeholder for environment flags (such as file paths, logging profiles, and thread limits).
+This standard properties configuration file is used to store runtime environment variables and adjustments. It contains the following optional keys, parsed dynamically during calculation initialization:
+
+| Property Key | Type | Default Value | Description |
+|---|---|---|---|
+| `weight.credit.utilization` | Integer | `30` | Target weight weight applied to the credit utilization ratio (0-100 scale). |
+| `weight.payment.history` | Integer | `35` | Target weight applied to the user's historical payment timeliness. |
+| `weight.credit.age` | Integer | `15` | Target weight applied to the average age of open accounts. |
+| `weight.credit.types` | Integer | `10` | Target weight applied to the diversity of account categories held. |
+| `weight.recent.inquiries` | Integer | `10` | Target weight applied to penalize recent hard credit inquiries. |
+
+### Configuration Parser: `PropertyWeightLoader`
+The loader class [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/infrastructure/config/PropertyWeightLoader.java) executes properties loading via standard InputStream reads:
+
+1. **Classpath Resolution**: Attempts to locate `credit-settings.properties` in the application classpath.
+2. **Safe Fallbacks**: If the file is missing or contains invalid integer formats, it captures exceptions and logs warnings to `System.err`, applying the specified default values.
+3. **Domain Mapping**: Outputs a fully populated [ScoreConfiguration](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/model/ScoreConfiguration.java) object which acts as an immutable Value Object for calculation threads.
 
 ---
 

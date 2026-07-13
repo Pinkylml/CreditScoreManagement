@@ -19,6 +19,7 @@ graph TD
     subgraph CoreDomain ["Core Domain (Pure Java)"]
         User["User (Aggregate Root)"]:::domain
         CHR["CreditHistoryRecord (Value Object)"]:::domain
+        ScoreConfig["ScoreConfiguration (Value Object)"]:::domain
     end
 
     subgraph Ports ["Outbound Ports (SPI Interfaces)"]
@@ -31,17 +32,19 @@ graph TD
         AbstractFileUserStore["AbstractFileUserStore (Template)"]:::infra
         XmlUserStore["XmlUserStore (JAXB Adapter)"]:::infra
         JsonUserStore["JsonUserStore (Gson Adapter)"]:::infra
+        PropertyWeightLoader["PropertyWeightLoader (Config Loader)"]:::infra
     end
 
     %% Relationships
     User --> CHR
-    UserStore -.-> User
-    AbstractFileUserStore -.-> UserStore
-    XmlUserStore --|> AbstractFileUserStore
-    JsonUserStore --|> AbstractFileUserStore
+    UserStore -.->|references| User
+    AbstractFileUserStore -.->|implements| UserStore
+    XmlUserStore -->|extends| AbstractFileUserStore
+    JsonUserStore -->|extends| AbstractFileUserStore
     PersistenceRegistry --> XmlUserStore
     PersistenceRegistry --> JsonUserStore
-    NotificationSender -.-> User
+    NotificationSender -.->|references| User
+    PropertyWeightLoader -->|creates| ScoreConfig
 ```
 
 ---
@@ -55,6 +58,7 @@ The codebase is organized into three distinct layers, each with explicit depende
 * **Key Components**:
   - `User`: Domain Aggregate Root representing a client profile, managing name, address, credit score, and risk status.
   - `CreditHistoryRecord`: Value Object representing an immutable log of a financial transaction.
+  - `ScoreConfiguration`: Value Object encapsulating custom mathematical weights applied during score calculations.
   - `RiskLevel`, `TransactionStatus`, `TransactionType`: Domain-specific enumerations defining state bounds.
 * **Inward Dependency Constraint**: This layer has **zero dependencies** on external frameworks (e.g., JAXB, Gson), file systems, or networking libraries. It is built using pure Java standard library features.
 
@@ -65,13 +69,14 @@ The codebase is organized into three distinct layers, each with explicit depende
   - `NotificationSender`: Outbound Port declaring messaging actions (`sendNotification`).
 * **Inward Dependency Constraint**: Interface definitions only refer to core domain types.
 
-### C. The Infrastructure Layer (`com.montran.creditscore.infrastructure`)
+### C. The Infrastructure Layer (`com.montran.creditscore.infrastructure` & `com.montran.creditscore.domain.infrastructure`)
 * **Responsibility**: Provides concrete adapters implementing the Port interfaces, handling actual interactions with disk files, formats, frameworks, and third-party libraries.
 * **Key Components**:
   - `XmlUserStore`: A concrete persistence adapter that marshals and unmarshals XML documents using the **JAXB** architecture.
   - `JsonUserStore`: A concrete persistence adapter that handles serialized JSON document operations using the **Google Gson** library.
   - `dto/` Package: Flat Data Transfer Objects (`UserStorageDto`, `SystemContainerDto`, `CreditHistoryStorageDto`) decorated with serialization metadata. These prevent infrastructure requirements (such as zero-argument constructors or JAXB annotations) from polluting the domain models.
   - `PersistenceRegistry`: A registry facilitating the runtime selection of the storage adapter based on configuration parameters.
+  - `PropertyWeightLoader`: Configuration component responsible for loading mathematical parameters and default weights dynamically from classpath files.
 
 ---
 
