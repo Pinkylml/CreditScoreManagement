@@ -9,19 +9,25 @@ import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlType;
 
 /**
- * @docs Flattened Data Transfer Object representation of the User Aggregate Root optimized for serialization hierarchies.
- * <p><b>Design Justification:</b> Strips out thread-safe primitives, business rules, and encapsulation locks, exposing a pure mutable metadata structure matching flat JSON and XML schemas perfectly.</p>
+ * @docs Flattened Data Transfer Object representation of the User Aggregate
+ *       Root optimized for serialization hierarchies.
+ *       <p>
+ *       <b>Design Justification:</b> Strips out thread-safe primitives,
+ *       business rules, and encapsulation locks, exposing a pure mutable
+ *       metadata structure matching flat JSON and XML schemas perfectly.
+ *       </p>
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "User", propOrder = {
         "ssn",
         "name",
         "address",
+        "email",
         "creditScore",
         "riskLevel",
+        "totalCreditLimit",
         "creditHistory"
 })
-
 public class UserStorageDto {
 
     @XmlElement(name = "ssn", required = true)
@@ -46,11 +52,13 @@ public class UserStorageDto {
     @XmlElement(name = "record")
     private List<CreditHistoryStorageDto> creditHistory = new ArrayList<>();
 
+    @XmlElement(name = "email")
+    private String email;
+
     public UserStorageDto() {
     }
 
-    //getters and setters
-
+    // getters and setters
 
     public String getSsn() {
         return ssn;
@@ -106,5 +114,13 @@ public class UserStorageDto {
 
     public void setTotalCreditLimit(double totalCreditLimit) {
         this.totalCreditLimit = totalCreditLimit;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

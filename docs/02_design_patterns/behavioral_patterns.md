@@ -148,9 +148,74 @@ The concrete implementation, [WeightedScoreFormula](file:///c:/Users/jcando/proj
 
 ---
 
-## 5. Key Benefits of Behavioral Designs
+## 5. Observer Design Pattern
 
-1. **Code Reuse (Template Method)**: Concurrency locking (using `StampedLock`), mapping, and caching structures are defined once in [AbstractFileUserStore](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/infrastructure/persistence/AbstractFileUserStore.java), preventing duplication across XML and JSON stores.
-2. **Strict Structure (Template Method)**: Subclasses are forced to implement only file serialization logic (`readFromFile` and `writeToFile`), ensuring thread safety and data mapping rules remain consistent across all adapters.
-3. **Algorithm Interchangeability (Strategy)**: New scoring formulas can be added to the project by implementing [ScoreFormula](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/calculation/ScoreFormula.java) and configuring the runtime context to use the new implementation, satisfying the Open/Closed Principle.
+### Description & Intent
+The Observer Pattern defines a one-to-many dependency between objects so that when one object changes state, all its dependents are notified and updated automatically.
 
+In this system, the **Observer Pattern** is implemented to broadcast profile updates to multiple, decoupled alert channels (such as Email or SMS).
+- **Subject Interface**: [NotificationSender](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/NotificationSender.java) declares the notification trigger.
+- **Subject Concrete**: [CreditEventPublisher](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/notification/CreditEventPublisher.java) implements `NotificationSender`. It manages the list of observers and notifies them when an event occurs.
+- **Observer Interface**: [CreditEventListener](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/notification/CreditEventListener.java) defines the notification callback contract.
+- **Concrete Observers**: [EmailNotificationListener](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/notification/EmailNotificationListener.java) and [SmsNotificationListener](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/notification/SmsNotificationListener.java) simulate specific network delivery mechanisms.
+
+### Architectural Structure
+
+```mermaid
+classDiagram
+    class NotificationSender {
+        <<interface>>
+        +sendNotification(User user, String message) void
+    }
+
+    class CreditEventPublisher {
+        -List~CreditEventListener~ listeners
+        +subscribe(CreditEventListener listener) void
+        +unsubscribe(CreditEventListener listener) void
+        +sendNotification(User user, String message) void
+    }
+
+    class CreditEventListener {
+        <<interface>>
+        +onCreditEvent(User user, String message) void
+    }
+
+    class EmailNotificationListener {
+        +onCreditEvent(User user, String message) void
+    }
+
+    class SmsNotificationListener {
+        +onCreditEvent(User user, String message) void
+    }
+
+    NotificationSender <|.. CreditEventPublisher : implements
+    CreditEventPublisher "1" o-- "*" CreditEventListener : aggregates
+    CreditEventListener <|.. EmailNotificationListener : implements
+    CreditEventListener <|.. SmsNotificationListener : implements
+```
+
+### Key Technical Enhancements
+
+1. **Thread-Safe Observer Collection (`CopyOnWriteArrayList`)**:
+   Since the subscriber list can be modified (subscribing or unsubscribing) concurrently by administrative or user threads while the system is iterating over it to send notifications, the publisher stores observers in a `CopyOnWriteArrayList`. This collection creates a fresh clone of the underlying array during write modifications, allowing safe, lock-free concurrent reads and preventing `ConcurrentModificationException` during event broadcasting.
+
+2. **Asynchronous Broadcasts (`CompletableFuture.runAsync()`)**:
+   Standard observer loops execute sequentially on the calling thread, meaning a slow external gateway (such as a network-blocked SMTP server or a third-party SMS API) would block the main execution flow. 
+   To prevent this, `CreditEventPublisher` dispatches each notification asynchronously on separate thread-pool threads:
+   ```java
+   for (CreditEventListener listener : listeners) {
+       CompletableFuture.runAsync(() -> listener.onCreditEvent(user, message))
+               .exceptionally(ex -> {
+                   System.err.println("Critical failure dispatching notification: " + ex.getMessage());
+                   return null;
+               });
+   }
+   ```
+
+---
+
+## 6. Key Benefits of Behavioral Designs
+
+1. **Code Reuse (Template Method)**: Concurrency locking (using StampedLock), mapping, and caching structures are defined once in [AbstractFileUserStore](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/infrastructure/persistence/AbstractFileUserStore.java), preventing duplication across XML and JSON stores.
+2. **Algorithm Interchangeability (Strategy)**: New scoring formulas can be added by implementing [ScoreFormula](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/calculation/ScoreFormula.java) and configuring the runtime context to use the new implementation, satisfying the Open/Closed Principle.
+3. **Decoupled Communications (Observer)**: Delivery endpoints (SMS, Email, Push Notifications) are kept isolated from calculations, allowing observers to be added, removed, or modified dynamically at runtime without affecting calculation flows.

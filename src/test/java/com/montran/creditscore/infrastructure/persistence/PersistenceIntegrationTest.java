@@ -30,23 +30,24 @@ class PersistenceIntegrationTest {
     @BeforeEach
     void setUp() {
         // Initialize a pure Domain Aggregate
-        testUser = new User("111-22-3333", "Jefferson Cando", "Quito, Ecuador");
+        testUser = new User("111-22-3333", "Jefferson Cando", "Quito, Ecuador", "jefferson@montran.com", 10000.0);
         testUser.setCreditScore(85.5);
         testUser.setRiskLevel(RiskLevel.LOW);
 
         // Attach an immutable historical record
         CreditHistoryRecord record = new CreditHistoryRecord(
                 new Date(),
+                new Date(),
                 TransactionType.CREDIT_CARD,
                 5000.00,
-                TransactionStatus.PAID
-        );
+                TransactionStatus.PAID);
         testUser.addCreditRecord(record);
     }
 
     @AfterEach
     void tearDown() {
-        // Clean up structural database files after each execution to avoid state contamination
+        // Clean up structural database files after each execution to avoid state
+        // contamination
         new File(XML_FILE).delete();
         new File(JSON_FILE).delete();
     }
@@ -75,6 +76,8 @@ class PersistenceIntegrationTest {
         User retrieved = retrievedOpt.get();
 
         assertEquals(testUser.getName(), retrieved.getName());
+        assertEquals(testUser.getEmail(), retrieved.getEmail());
+        assertEquals(testUser.getTotalCreditLimit(), retrieved.getTotalCreditLimit());
         assertEquals(testUser.getCreditScore(), retrieved.getCreditScore());
         assertEquals(1, retrieved.getCreditHistory().size());
         assertEquals(TransactionType.CREDIT_CARD, retrieved.getCreditHistory().get(0).getTransactionType());
@@ -95,6 +98,8 @@ class PersistenceIntegrationTest {
         User retrieved = retrievedOpt.get();
 
         assertEquals(testUser.getName(), retrieved.getName());
+        assertEquals(testUser.getEmail(), retrieved.getEmail());
+        assertEquals(testUser.getTotalCreditLimit(), retrieved.getTotalCreditLimit());
         assertEquals(testUser.getCreditScore(), retrieved.getCreditScore());
         assertEquals(1, retrieved.getCreditHistory().size());
         assertEquals(TransactionStatus.PAID, retrieved.getCreditHistory().get(0).getStatus());

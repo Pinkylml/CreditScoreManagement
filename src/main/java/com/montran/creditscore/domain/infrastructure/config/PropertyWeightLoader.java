@@ -44,8 +44,9 @@ public class PropertyWeightLoader {
         int creditAge = parseProperty(props, "weight.credit.age", 15);
         int creditTypes = parseProperty(props, "weight.credit.types", 10);
         int recentInquiries = parseProperty(props, "weight.recent.inquiries", 10);
+        int graceDays = parseProperty(props, "late.payment.grace.days", 30);
 
-        return new ScoreConfiguration(utilization, paymentHistory, creditAge, creditTypes, recentInquiries);
+        return new ScoreConfiguration(utilization, paymentHistory, creditAge, creditTypes, recentInquiries, graceDays);
     }
 
     /**

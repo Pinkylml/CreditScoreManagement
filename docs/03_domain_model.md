@@ -14,16 +14,19 @@ classDiagram
         -String ssn
         -String name
         -String address
+        -String email
         -double creditScore
         -double totalCreditLimit
         -RiskLevel riskLevel
         -List~CreditHistoryRecord~ creditHistory
-        +User(ssn, name, address, totalCreditLimit)
+        +User(ssn, name, address, email, totalCreditLimit)
         +getSsn() String
         +getName() String
         +setName(name) void
         +getAddress() String
         +setAddress(address) void
+        +getEmail() String
+        +setEmail(email) void
         +getCreditScore() double
         +setCreditScore(score) void
         +getTotalCreditLimit() double
@@ -186,7 +189,7 @@ Both classes enforce strict business invariants during instantiation:
 
 ### `User` Validations:
 ```java
-public User(String ssn, String name, String address, double totalCreditLimit) {
+public User(String ssn, String name, String address, String email, double totalCreditLimit) {
     if (ssn == null || ssn.trim().isEmpty()) {
         throw new IllegalArgumentException("A unique, non-blank SSN identifier is mandatory.");
     }
@@ -196,6 +199,7 @@ public User(String ssn, String name, String address, double totalCreditLimit) {
     this.ssn = ssn;
     this.name = name;
     this.address = address;
+    this.email = email;
     this.creditScore = 0.0;
     this.riskLevel = RiskLevel.HIGH;
     this.creditHistory = new ArrayList<>();

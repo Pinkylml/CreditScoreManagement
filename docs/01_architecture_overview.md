@@ -23,6 +23,10 @@ graph TD
         ScoreFormula["ScoreFormula (Strategy Interface)"]:::domain
         WeightedScoreFormula["WeightedScoreFormula (Concrete Strategy)"]:::domain
         RiskClassifier["RiskClassifier (Classification Service)"]:::domain
+        CreditEventListener["CreditEventListener (Observer Interface)"]:::domain
+        EmailNotificationListener["EmailNotificationListener (Email Observer)"]:::domain
+        SmsNotificationListener["SmsNotificationListener (SMS Observer)"]:::domain
+        CreditEventPublisher["CreditEventPublisher (Publisher / Port Impl)"]:::domain
     end
 
     subgraph Ports ["Outbound Ports (SPI Interfaces)"]
@@ -52,6 +56,12 @@ graph TD
     WeightedScoreFormula -->|evaluates| User
     WeightedScoreFormula -->|evaluates| ScoreConfig
     RiskClassifier -->|classifies| User
+
+    %% Observer wiring
+    CreditEventPublisher -.->|implements| NotificationSender
+    CreditEventPublisher -->|notifies| CreditEventListener
+    EmailNotificationListener -.->|implements| CreditEventListener
+    SmsNotificationListener -.->|implements| CreditEventListener
 ```
 
 ---
@@ -61,14 +71,17 @@ graph TD
 The codebase is organized into three distinct layers, each with explicit dependencies pointing inwards towards the core business domain.
 
 ### A. The Core Domain & Service Layer (`com.montran.creditscore.domain` & `com.montran.creditscore.service`)
-* **Responsibility**: Houses all business rules, invariants, definitions, and domain state, as well as scoring calculation algorithms.
+* **Responsibility**: Houses all business rules, invariants, definitions, domain state, scoring algorithms, and event notifications.
 * **Key Components**:
-  - `User`: Domain Aggregate Root representing a client profile, managing name, address, credit limit, credit score, and risk status.
+  - `User`: Domain Aggregate Root representing a client profile, managing name, address, email, credit limit, credit score, and risk status.
   - `CreditHistoryRecord`: Value Object representing an immutable log of a financial transaction with original due dates and settlement dates.
   - `ScoreConfiguration`: Value Object encapsulating custom mathematical weights and grace periods applied during score evaluations.
-  - `ScoreFormula`: Strategy interface defining the interface contract for credit scoring calculation algorithms.
+  - `ScoreFormula`: Strategy interface defining the contract for credit scoring calculation algorithms.
   - `WeightedScoreFormula`: Concrete Strategy implementation executing the standardized scoring algorithms (utilization, payment history, age, type variance, recent inquiries).
   - `RiskClassifier`: Domain Utility Service classifying calculated scores into risk profiles (`LOW`, `MEDIUM`, `HIGH`).
+  - `CreditEventListener`: Observer interface defining the receipt contract for profile alerts.
+  - `EmailNotificationListener` & `SmsNotificationListener`: Concrete Observer implementations simulating network-based email and SMS delivery gateways.
+  - `CreditEventPublisher`: Subject component acting as the concrete implementation of the outbound port `NotificationSender`, distributing alerts asynchronously to registered observers.
   - `RiskLevel`, `TransactionStatus`, `TransactionType`: Domain-specific enumerations defining state bounds.
 * **Inward Dependency Constraint**: This layer has **zero dependencies** on external frameworks (e.g., JAXB, Gson), file systems, or networking libraries. It is built using pure Java standard library features.
 

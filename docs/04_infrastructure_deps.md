@@ -88,6 +88,7 @@ The JSON structure managed by the Google Gson engine outputs flat collections ne
       "ssn": "111-22-3333",
       "name": "Jefferson Cando",
       "address": "Quito, Ecuador",
+      "email": "jeff@example.com",
       "creditScore": 85.5,
       "riskLevel": "LOW",
       "totalCreditLimit": 10000.0,
@@ -116,6 +117,7 @@ The XML structure managed by the JAXB architecture maps DTO classes to custom XM
             <ssn>111-22-3333</ssn>
             <name>Jefferson Cando</name>
             <address>Quito, Ecuador</address>
+            <email>jeff@example.com</email>
             <creditScore>85.5</creditScore>
             <riskLevel>LOW</riskLevel>
             <totalCreditLimit>10000.0</totalCreditLimit>

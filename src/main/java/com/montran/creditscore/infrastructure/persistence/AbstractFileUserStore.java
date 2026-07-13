@@ -143,6 +143,7 @@ public abstract class AbstractFileUserStore implements UserStore {
         dto.setSsn(user.getSsn());
         dto.setName(user.getName());
         dto.setAddress(user.getAddress());
+        dto.setEmail(user.getEmail());
         dto.setCreditScore(user.getCreditScore());
         dto.setRiskLevel(user.getRiskLevel().name());
         dto.setTotalCreditLimit(user.getTotalCreditLimit());
@@ -178,7 +179,7 @@ public abstract class AbstractFileUserStore implements UserStore {
      * @docs Maps a structural DTO back into a pure Domain Aggregate.
      */
     private User mapToDomain(UserStorageDto dto) {
-        User user = new User(dto.getSsn(), dto.getName(), dto.getAddress(), dto.getTotalCreditLimit());
+        User user = new User(dto.getSsn(), dto.getName(), dto.getAddress(), dto.getEmail(), dto.getTotalCreditLimit());
         user.setCreditScore(dto.getCreditScore());
         user.setRiskLevel(RiskLevel.valueOf(dto.getRiskLevel()));
 
