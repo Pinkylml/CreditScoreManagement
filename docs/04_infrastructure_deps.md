@@ -63,6 +63,7 @@ This standard properties configuration file is used to store runtime environment
 | `weight.credit.age` | Integer | `15` | Target weight applied to the average age of open accounts. |
 | `weight.credit.types` | Integer | `10` | Target weight applied to the diversity of account categories held. |
 | `weight.recent.inquiries` | Integer | `10` | Target weight applied to penalize recent hard credit inquiries. |
+| `late.payment.grace.days` | Integer | `30` | Grace period in days before a payment is officially penalized as late. |
 
 ### Configuration Parser: `PropertyWeightLoader`
 The loader class [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/infrastructure/config/PropertyWeightLoader.java) executes properties loading via standard InputStream reads:
@@ -78,7 +79,7 @@ The loader class [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulac
 The adapters serialize DTO data structures to the project directory root.
 
 ### A. JSON Document Layout (`users.json`)
-The JSON structure managed by the Google Gson engine outputs flat collections nested within a root object:
+The JSON structure managed by the Google Gson engine outputs flat collections nested within a root object. Gson maps fields directly to Java variable names:
 
 ```json
 {
@@ -89,10 +90,12 @@ The JSON structure managed by the Google Gson engine outputs flat collections ne
       "address": "Quito, Ecuador",
       "creditScore": 85.5,
       "riskLevel": "LOW",
+      "totalCreditLimit": 10000.0,
       "creditHistory": [
         {
-          "date": "2026-07-13",
-          "type": "CREDIT_CARD",
+          "dueDateStr": "2026-07-13",
+          "settlementDateStr": "2026-07-14",
+          "transactionType": "CREDIT_CARD",
           "amount": 5000.0,
           "status": "PAID"
         }
@@ -103,7 +106,7 @@ The JSON structure managed by the Google Gson engine outputs flat collections ne
 ```
 
 ### B. XML Document Layout (`users.xml`)
-The XML structure managed by the JAXB architecture maps container annotations to schema tags:
+The XML structure managed by the JAXB architecture maps DTO classes to custom XML tags according to `@XmlElement` and `@XmlElementWrapper` annotations:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -115,9 +118,11 @@ The XML structure managed by the JAXB architecture maps container annotations to
             <address>Quito, Ecuador</address>
             <creditScore>85.5</creditScore>
             <riskLevel>LOW</riskLevel>
+            <totalCreditLimit>10000.0</totalCreditLimit>
             <creditHistory>
                 <record>
-                    <date>2026-07-13</date>
+                    <dueDate>2026-07-13</dueDate>
+                    <settlementDate>2026-07-14</settlementDate>
                     <type>CREDIT_CARD</type>
                     <amount>5000.0</amount>
                     <status>PAID</status>

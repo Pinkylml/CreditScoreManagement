@@ -16,10 +16,13 @@ graph TD
     classDef infra fill:#fdd,stroke:#333,stroke-width:2px;
 
     %% Hexagonal boundaries
-    subgraph CoreDomain ["Core Domain (Pure Java)"]
+    subgraph CoreDomain ["Core Domain & Services (Pure Java)"]
         User["User (Aggregate Root)"]:::domain
         CHR["CreditHistoryRecord (Value Object)"]:::domain
         ScoreConfig["ScoreConfiguration (Value Object)"]:::domain
+        ScoreFormula["ScoreFormula (Strategy Interface)"]:::domain
+        WeightedScoreFormula["WeightedScoreFormula (Concrete Strategy)"]:::domain
+        RiskClassifier["RiskClassifier (Classification Service)"]:::domain
     end
 
     subgraph Ports ["Outbound Ports (SPI Interfaces)"]
@@ -45,6 +48,10 @@ graph TD
     PersistenceRegistry --> JsonUserStore
     NotificationSender -.->|references| User
     PropertyWeightLoader -->|creates| ScoreConfig
+    WeightedScoreFormula -.->|implements| ScoreFormula
+    WeightedScoreFormula -->|evaluates| User
+    WeightedScoreFormula -->|evaluates| ScoreConfig
+    RiskClassifier -->|classifies| User
 ```
 
 ---
@@ -53,12 +60,15 @@ graph TD
 
 The codebase is organized into three distinct layers, each with explicit dependencies pointing inwards towards the core business domain.
 
-### A. The Core Domain Layer (`com.montran.creditscore.domain.model`)
-* **Responsibility**: Houses all business rules, invariants, definitions, and domain state.
+### A. The Core Domain & Service Layer (`com.montran.creditscore.domain` & `com.montran.creditscore.service`)
+* **Responsibility**: Houses all business rules, invariants, definitions, and domain state, as well as scoring calculation algorithms.
 * **Key Components**:
-  - `User`: Domain Aggregate Root representing a client profile, managing name, address, credit score, and risk status.
-  - `CreditHistoryRecord`: Value Object representing an immutable log of a financial transaction.
-  - `ScoreConfiguration`: Value Object encapsulating custom mathematical weights applied during score calculations.
+  - `User`: Domain Aggregate Root representing a client profile, managing name, address, credit limit, credit score, and risk status.
+  - `CreditHistoryRecord`: Value Object representing an immutable log of a financial transaction with original due dates and settlement dates.
+  - `ScoreConfiguration`: Value Object encapsulating custom mathematical weights and grace periods applied during score evaluations.
+  - `ScoreFormula`: Strategy interface defining the interface contract for credit scoring calculation algorithms.
+  - `WeightedScoreFormula`: Concrete Strategy implementation executing the standardized scoring algorithms (utilization, payment history, age, type variance, recent inquiries).
+  - `RiskClassifier`: Domain Utility Service classifying calculated scores into risk profiles (`LOW`, `MEDIUM`, `HIGH`).
   - `RiskLevel`, `TransactionStatus`, `TransactionType`: Domain-specific enumerations defining state bounds.
 * **Inward Dependency Constraint**: This layer has **zero dependencies** on external frameworks (e.g., JAXB, Gson), file systems, or networking libraries. It is built using pure Java standard library features.
 

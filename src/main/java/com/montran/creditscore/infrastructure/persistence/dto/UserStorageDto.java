@@ -39,6 +39,9 @@ public class UserStorageDto {
     @XmlElement(name = "riskLevel")
     private String riskLevel;
 
+    @XmlElement(name = "totalCreditLimit")
+    private double totalCreditLimit;
+
     @XmlElementWrapper(name = "creditHistory")
     @XmlElement(name = "record")
     private List<CreditHistoryStorageDto> creditHistory = new ArrayList<>();
@@ -95,5 +98,13 @@ public class UserStorageDto {
 
     public void setCreditHistory(List<CreditHistoryStorageDto> creditHistory) {
         this.creditHistory = creditHistory;
+    }
+
+    public double getTotalCreditLimit() {
+        return totalCreditLimit;
+    }
+
+    public void setTotalCreditLimit(double totalCreditLimit) {
+        this.totalCreditLimit = totalCreditLimit;
     }
 }

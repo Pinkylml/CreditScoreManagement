@@ -1,7 +1,8 @@
 package com.montran.creditscore.domain.model;
 
 /**
- * @docs Domain Value Object encapsulating the mathematical weights applied during credit score evaluation.
+ * @docs Domain Value Object encapsulating the mathematical weights applied
+ *       during credit score evaluation.
  */
 public final class ScoreConfiguration {
 
@@ -10,15 +11,17 @@ public final class ScoreConfiguration {
     private final int creditAgeWeight;
     private final int creditTypesWeight;
     private final int recentInquiriesWeight;
+    private final int latePaymentGraceDays;
 
     public ScoreConfiguration(int utilizationWeight, int paymentHistoryWeight,
-                              int creditAgeWeight, int creditTypesWeight,
-                              int recentInquiriesWeight) {
+            int creditAgeWeight, int creditTypesWeight,
+            int recentInquiriesWeight, int latePaymentGraceDays) {
         this.utilizationWeight = utilizationWeight;
         this.paymentHistoryWeight = paymentHistoryWeight;
         this.creditAgeWeight = creditAgeWeight;
         this.creditTypesWeight = creditTypesWeight;
         this.recentInquiriesWeight = recentInquiriesWeight;
+        this.latePaymentGraceDays = latePaymentGraceDays;
     }
 
     /**
@@ -38,7 +41,8 @@ public final class ScoreConfiguration {
     }
 
     /**
-     * @docs Gets the maximum point allocation for the average age of credit accounts.
+     * @docs Gets the maximum point allocation for the average age of credit
+     *       accounts.
      * @return Integer weight value.
      */
     public int getCreditAgeWeight() {
@@ -59,5 +63,9 @@ public final class ScoreConfiguration {
      */
     public int getRecentInquiriesWeight() {
         return recentInquiriesWeight;
+    }
+
+    public int getLatePaymentGraceDays() {
+        return latePaymentGraceDays;
     }
 }

@@ -30,6 +30,9 @@ public class User {
     /** @docs The private list containing all chronological financial history logs. */
     private final List<CreditHistoryRecord> creditHistory;
 
+    /** @docs The personal maximum credit limit assigned to this specific user profile. */
+    private double totalCreditLimit;
+
     /**
      * @docs Initializes a fresh User instance with empty histories and baseline risk assignments.
      * @param ssn The unique identity token; must be non-empty and non-null.
@@ -37,9 +40,12 @@ public class User {
      * @param address The primary residency location info.
      * @throws IllegalArgumentException if the provided SSN is null or blank.
      */
-    public User(String ssn, String name, String address) {
+    public User(String ssn, String name, String address, double totalCreditLimit) {
         if (ssn == null || ssn.trim().isEmpty()) {
             throw new IllegalArgumentException("A unique, non-blank SSN identifier is mandatory.");
+        }
+        if (totalCreditLimit <= 0) {
+            throw new IllegalArgumentException("Total credit limit must be greater than zero.");
         }
         this.ssn = ssn;
         this.name = name;
@@ -47,6 +53,7 @@ public class User {
         this.creditScore = 0.0;
         this.riskLevel = RiskLevel.HIGH;
         this.creditHistory = new ArrayList<>();
+        this.totalCreditLimit = totalCreditLimit;;
     }
 
     //getters
@@ -78,6 +85,8 @@ public class User {
         return Collections.unmodifiableList(this.creditHistory);
     }
 
+    public double getTotalCreditLimit() { return totalCreditLimit; }
+
     //setters
     public void setAddress(String address) {
         this.address = address;
@@ -90,6 +99,8 @@ public class User {
     public void setRiskLevel(RiskLevel riskLevel) {
         this.riskLevel = riskLevel;
     }
+
+    public void setTotalCreditLimit(double totalCreditLimit) { this.totalCreditLimit = totalCreditLimit; }
 
 
     /**

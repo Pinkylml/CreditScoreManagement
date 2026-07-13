@@ -15,9 +15,10 @@ classDiagram
         -String name
         -String address
         -double creditScore
+        -double totalCreditLimit
         -RiskLevel riskLevel
         -List~CreditHistoryRecord~ creditHistory
-        +User(ssn, name, address)
+        +User(ssn, name, address, totalCreditLimit)
         +getSsn() String
         +getName() String
         +setName(name) void
@@ -25,6 +26,8 @@ classDiagram
         +setAddress(address) void
         +getCreditScore() double
         +setCreditScore(score) void
+        +getTotalCreditLimit() double
+        +setTotalCreditLimit(limit) void
         +getRiskLevel() RiskLevel
         +setRiskLevel(level) void
         +getCreditHistory() List~CreditHistoryRecord~
@@ -33,12 +36,14 @@ classDiagram
     }
 
     class CreditHistoryRecord {
-        -Date date
+        -Date dueDate
+        -Date settlementDate
         -TransactionType transactionType
         -double amount
         -TransactionStatus status
-        +CreditHistoryRecord(date, type, amount, status)
-        +getDate() Date
+        +CreditHistoryRecord(dueDate, settlementDate, transactionType, amount, status)
+        +getDueDate() Date
+        +getSettlementDate() Date
         +getTransactionType() TransactionType
         +getAmount() double
         +getStatus() TransactionStatus
@@ -51,12 +56,18 @@ classDiagram
         -int creditAgeWeight
         -int creditTypesWeight
         -int recentInquiriesWeight
-        +ScoreConfiguration(utilizationWeight, paymentHistoryWeight, creditAgeWeight, creditTypesWeight, recentInquiriesWeight)
+        -int latePaymentGraceDays
+        +ScoreConfiguration(utilizationWeight, paymentHistoryWeight, creditAgeWeight, creditTypesWeight, recentInquiriesWeight, latePaymentGraceDays)
         +getUtilizationWeight() int
         +getPaymentHistoryWeight() int
         +getCreditAgeWeight() int
         +getCreditTypesWeight() int
         +getRecentInquiriesWeight() int
+        +getLatePaymentGraceDays() int
+    }
+
+    class RiskClassifier {
+        +classify(score) RiskLevel$
     }
 
     class RiskLevel {
@@ -86,6 +97,7 @@ classDiagram
     User ..> RiskLevel : references
     CreditHistoryRecord ..> TransactionStatus : references
     CreditHistoryRecord ..> TransactionType : references
+    RiskClassifier ..> RiskLevel : resolves
 ```
 
 ---
@@ -98,17 +110,25 @@ The `User` class acts as the **Aggregate Root** of its domain boundary.
 * **Encapsulation**: State transitions and calculations are managed within the aggregate boundary. Internal collections cannot be directly modified by external classes.
 * **Invariants enforced**:
   - The SSN must be non-null and non-blank during construction.
+  - The total credit limit must be strictly greater than zero.
   - Adding records requires a non-null `CreditHistoryRecord` instance.
 
 ### B. Value Object: `CreditHistoryRecord`
 An immutable value object representing a financial transaction log.
-* **Equality**: Defined entirely by the values of its attributes (`date`, `transactionType`, `amount`, `status`) rather than a database ID.
+* **Equality**: Defined entirely by the values of its attributes (`dueDate`, `settlementDate`, `transactionType`, `amount`, `status`) rather than a database ID.
 * **Immutability**: Designed to be thread-safe and read-only. Once instantiated, its properties cannot be changed.
 
 ### C. Value Object: `ScoreConfiguration`
 An immutable value object representing mathematical configurations used to calculate user credit scores.
-* **Equality**: Defined entirely by the combination of its five weights (`utilizationWeight`, `paymentHistoryWeight`, `creditAgeWeight`, `creditTypesWeight`, `recentInquiriesWeight`).
+* **Equality**: Defined by the combination of its weights (`utilizationWeight`, `paymentHistoryWeight`, `creditAgeWeight`, `creditTypesWeight`, `recentInquiriesWeight`) and its `latePaymentGraceDays`.
 * **Immutability**: Enforces a strictly read-only design with private final fields and no setters, making it safe to share across concurrent calculation tasks.
+
+### D. Domain Utility Service: `RiskClassifier`
+A static utility service executing business range mapping.
+* **Responsibility**: Classifies calculated credit scores into risk levels:
+  - Score >= 75.0: `RiskLevel.LOW`
+  - 50.0 <= Score < 75.0: `RiskLevel.MEDIUM`
+  - Score < 50.0: `RiskLevel.HIGH`
 
 ---
 
@@ -136,19 +156,27 @@ public List<CreditHistoryRecord> getCreditHistory() {
 Any attempt to invoke mutators (such as `add()`, `remove()`, or `clear()`) on this list will throw an `UnsupportedOperationException`.
 
 ### B. Defensive Copying of Mutable Date Objects
-The `java.util.Date` class is mutable. If `CreditHistoryRecord` kept a reference to the `Date` passed to its constructor, external code could alter the date after construction:
+The `java.util.Date` class is mutable. If `CreditHistoryRecord` kept a reference to the `Date` passed to its constructor, external code could alter the date after construction. Similarly, returning the original `Date` reference in a getter would expose it to external modifications.
 
+To prevent this, `CreditHistoryRecord` performs **defensive copying** at both construction and retrieval:
+
+#### Construction Defensive Copying:
 ```java
-// Bad: Vulnerable to external mutation
-this.date = date;
+// Clone dates at creation to prevent external modifications
+this.dueDate = new Date(dueDate.getTime());
+this.settlementDate = (settlementDate != null) ? new Date(settlementDate.getTime()) : null;
 ```
 
-To preserve immutability, `CreditHistoryRecord` creates a **defensive copy** of the date object on instantiation:
+#### Getter Defensive Copying:
 ```java
-// Good: Immutability preserved
-this.date = new Date(date.getTime());
+public Date getDueDate() {
+    return new Date(this.dueDate.getTime());
+}
+
+public Date getSettlementDate() {
+    return (this.settlementDate != null) ? new Date(this.settlementDate.getTime()) : null;
+}
 ```
-Similarly, when retrieving the date, returning a reference exposes it to modification. However, since serialization frameworks require reading values directly, preserving immutability at construction is critical for value integrity.
 
 ---
 
@@ -158,9 +186,12 @@ Both classes enforce strict business invariants during instantiation:
 
 ### `User` Validations:
 ```java
-public User(String ssn, String name, String address) {
+public User(String ssn, String name, String address, double totalCreditLimit) {
     if (ssn == null || ssn.trim().isEmpty()) {
         throw new IllegalArgumentException("A unique, non-blank SSN identifier is mandatory.");
+    }
+    if (totalCreditLimit <= 0) {
+        throw new IllegalArgumentException("Total credit limit must be greater than zero.");
     }
     this.ssn = ssn;
     this.name = name;
@@ -168,14 +199,15 @@ public User(String ssn, String name, String address) {
     this.creditScore = 0.0;
     this.riskLevel = RiskLevel.HIGH;
     this.creditHistory = new ArrayList<>();
+    this.totalCreditLimit = totalCreditLimit;
 }
 ```
 
 ### `CreditHistoryRecord` Validations:
 ```java
-public CreditHistoryRecord(Date date, TransactionType transactionType, double amount, TransactionStatus status) {
-    if (date == null) {
-        throw new IllegalArgumentException("Transaction entry date cannot be null.");
+public CreditHistoryRecord(Date dueDate, Date settlementDate, TransactionType transactionType, double amount, TransactionStatus status) {
+    if (dueDate == null) {
+        throw new IllegalArgumentException("Transaction due date cannot be null.");
     }
     if (transactionType == null) {
         throw new IllegalArgumentException("Transaction context type cannot be null.");
@@ -186,7 +218,8 @@ public CreditHistoryRecord(Date date, TransactionType transactionType, double am
     if (amount < 0.0) {
         throw new IllegalArgumentException("Historical financial transaction amount cannot be negative.");
     }
-    this.date = new Date(date.getTime());
+    this.dueDate = new Date(dueDate.getTime());
+    this.settlementDate = (settlementDate != null) ? new Date(settlementDate.getTime()) : null;
     this.transactionType = transactionType;
     this.amount = amount;
     this.status = status;

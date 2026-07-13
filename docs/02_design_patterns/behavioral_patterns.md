@@ -109,9 +109,48 @@ sequenceDiagram
     deactivate Subclass
 ```
 
+## 4. Strategy Design Pattern
+
+### Description & Intent
+The Strategy Pattern defines a family of algorithms, encapsulates each one, and makes them interchangeable. It allows the algorithm to vary independently from the clients that use it.
+
+In **CreditScoreManagement**, the credit scoring calculations are encapsulated behind the [ScoreFormula](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/calculation/ScoreFormula.java) strategy interface. This isolates complex scoring rules and math from the core orchestrator or persistence adapters, allowing new scoring models (e.g., FICO, custom localized models) to be plugged in dynamically.
+
+### Architectural Structure
+
+```mermaid
+classDiagram
+    class ScoreFormula {
+        <<interface>>
+        +calculate(User user, ScoreConfiguration config) double
+    }
+
+    class WeightedScoreFormula {
+        +calculate(User user, ScoreConfiguration config) double
+        -computeUtilizationPoints(User user, List~CreditHistoryRecord~ history, int maxWeight) double
+        -computePaymentHistoryPoints(List~CreditHistoryRecord~ history, int maxWeight, int graceDays) double
+        -computeCreditAgePoints(List~CreditHistoryRecord~ history, int maxWeight) double
+        -computeCreditTypesPoints(List~CreditHistoryRecord~ history, int maxWeight) double
+        -computeInquiryPoints(List~CreditHistoryRecord~ history, int maxWeight) double
+    }
+
+    ScoreFormula <|.. WeightedScoreFormula : implements
+```
+
+### Core Implementation
+The concrete implementation, [WeightedScoreFormula](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/calculation/WeightedScoreFormula.java), calculates a rating by summing up five distinct weighted categories:
+
+1. **Credit Utilization Ratio**: Evaluates used credit against the personal `totalCreditLimit`.
+2. **Payment History**: Computes payment punctuality, taking into account `latePaymentGraceDays` limit parameters.
+3. **Credit Age**: Evaluates the average lifespan of active credit accounts.
+4. **Credit Types**: Evaluates variety in the types of financial accounts.
+5. **Inquiries**: Penalizes hard inquiries made in the last 24 months.
+
 ---
 
-## 4. Key Benefits
+## 5. Key Benefits of Behavioral Designs
 
-1. **Code Reuse**: Concurrency locking (using `StampedLock`), mapping (`mapToDto`/`mapToDomain`), and caching structures are defined once in the abstract class, preventing code duplication across JSON and XML stores.
-2. **Strict Structure**: Subclasses are forced to implement only file serialization logic, ensuring thread safety and data mapping rules remain consistent across all adapters.
+1. **Code Reuse (Template Method)**: Concurrency locking (using `StampedLock`), mapping, and caching structures are defined once in [AbstractFileUserStore](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/infrastructure/persistence/AbstractFileUserStore.java), preventing duplication across XML and JSON stores.
+2. **Strict Structure (Template Method)**: Subclasses are forced to implement only file serialization logic (`readFromFile` and `writeToFile`), ensuring thread safety and data mapping rules remain consistent across all adapters.
+3. **Algorithm Interchangeability (Strategy)**: New scoring formulas can be added to the project by implementing [ScoreFormula](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/calculation/ScoreFormula.java) and configuring the runtime context to use the new implementation, satisfying the Open/Closed Principle.
+

@@ -7,14 +7,19 @@ import javax.xml.bind.annotation.XmlType;
 
 /**
  * @docs Data Transfer Object representing a historical transaction entry for
- * file-based persistence schemes.
- * <p><b>Design Justification:</b> Decouples serialization structures from the
- * immutable Core Domain models. Features mutable attributes and a zero-argument
- * constructor to meet the reflection demands of JAXB and Gson libraries.</p>
+ *       file-based persistence schemes.
+ *       <p>
+ *       <b>Design Justification:</b> Decouples serialization structures from
+ *       the
+ *       immutable Core Domain models. Features mutable attributes and a
+ *       zero-argument
+ *       constructor to meet the reflection demands of JAXB and Gson libraries.
+ *       </p>
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "CreditHistoryRecord", propOrder = {
-        "dateStr",
+        "dueDateStr",
+        "settlementDateStr",
         "transactionType",
         "amount",
         "status"
@@ -33,15 +38,21 @@ public class CreditHistoryStorageDto {
     @XmlElement(name = "status")
     private String status;
 
+    @XmlElement(name = "dueDate")
+    private String dueDateStr;
+
+    @XmlElement(name = "settlementDate")
+    private String settlementDateStr;
+
     /**
-     * @docs Default zero-argument constructor required for reflection-based data serialization.
+     * @docs Default zero-argument constructor required for reflection-based data
+     *       serialization.
      */
 
     public CreditHistoryStorageDto() {
     }
 
-    //getters and setters
-
+    // getters and setters
 
     public String getDateStr() {
         return dateStr;
@@ -73,5 +84,21 @@ public class CreditHistoryStorageDto {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getDueDateStr() {
+        return dueDateStr;
+    }
+
+    public void setDueDateStr(String dueDateStr) {
+        this.dueDateStr = dueDateStr;
+    }
+
+    public String getSettlementDateStr() {
+        return settlementDateStr;
+    }
+
+    public void setSettlementDateStr(String settlementDateStr) {
+        this.settlementDateStr = settlementDateStr;
     }
 }

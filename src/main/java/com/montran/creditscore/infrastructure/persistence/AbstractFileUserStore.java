@@ -8,6 +8,7 @@ import com.montran.creditscore.infrastructure.persistence.dto.UserStorageDto;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,14 +21,21 @@ public abstract class AbstractFileUserStore implements UserStore {
     /** @docs Thread-safe internal memory cache mapping SSN to User Aggregates. */
     protected final ConcurrentMap<String, User> cache = new ConcurrentHashMap<>();
 
-    /** @docs High-performance locking mechanism for read-heavy, write-isolated concurrency control. */
+    /**
+     * @docs High-performance locking mechanism for read-heavy, write-isolated
+     *       concurrency control.
+     */
     protected final StampedLock lock = new StampedLock();
 
-    /** @docs Standard ISO-8601 thread-local date parser (SimpleDateFormat is not thread-safe, so we instantiate locally or synchronize usage). */
+    /**
+     * @docs Standard ISO-8601 thread-local date parser (SimpleDateFormat is not
+     *       thread-safe, so we instantiate locally or synchronize usage).
+     */
     private static final String DATE_FORMAT = "yyyy-MM-dd";
 
     /**
-     * @docs Base constructor that triggers the initial file loading sequence upon instantiation.
+     * @docs Base constructor that triggers the initial file loading sequence upon
+     *       instantiation.
      */
     protected AbstractFileUserStore() {
         loadStateIntoCache();
@@ -45,13 +53,13 @@ public abstract class AbstractFileUserStore implements UserStore {
      */
     protected abstract void writeToFile(List<UserStorageDto> dtos);
 
-
     @Override
     public Optional<User> findBySsn(String ssn) {
         long stamp = lock.tryOptimisticRead();
         User user = cache.get(ssn);
-        // If a write occurred during our optimistic read, fall back to a strict read lock.
-        if(!lock.validate(stamp)){
+        // If a write occurred during our optimistic read, fall back to a strict read
+        // lock.
+        if (!lock.validate(stamp)) {
             stamp = lock.readLock();
             try {
                 user = cache.get(ssn);
@@ -87,21 +95,21 @@ public abstract class AbstractFileUserStore implements UserStore {
     public boolean deleteBySsn(String ssn) {
         long stamp = lock.writeLock();
         try {
-            if(cache.remove(ssn)!= null){
+            if (cache.remove(ssn) != null) {
                 flushCacheToFile();
                 return true;
             }
             return false;
-        }finally {
+        } finally {
             lock.unlockWrite(stamp);
         }
     }
 
     /**
      * @docs Translates the entire current cache state into flat DTOs
-     * and delegates the disk write.
+     *       and delegates the disk write.
      */
-    private void flushCacheToFile(){
+    private void flushCacheToFile() {
         List<UserStorageDto> dtos = cache.values().stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
@@ -111,13 +119,13 @@ public abstract class AbstractFileUserStore implements UserStore {
     /**
      * @docs Bootstraps the memory cache from the disk structure safely on startup.
      */
-    private void loadStateIntoCache(){
+    private void loadStateIntoCache() {
         long stamp = lock.writeLock();
         try {
             List<UserStorageDto> dtos = readFromFile();
             cache.clear();
-            if(dtos!=null){
-                for (UserStorageDto dto : dtos){
+            if (dtos != null) {
+                for (UserStorageDto dto : dtos) {
                     User domainUser = mapToDomain(dto);
                     cache.put(domainUser.getSsn(), domainUser);
                 }
@@ -137,17 +145,31 @@ public abstract class AbstractFileUserStore implements UserStore {
         dto.setAddress(user.getAddress());
         dto.setCreditScore(user.getCreditScore());
         dto.setRiskLevel(user.getRiskLevel().name());
+        dto.setTotalCreditLimit(user.getTotalCreditLimit());
 
         SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
+
+        // CORRECCIÓN: La lista debe inicializarse antes del bucle para poder almacenar
+        // los datos.
         List<CreditHistoryStorageDto> historyDtos = new ArrayList<>();
+
         for (CreditHistoryRecord record : user.getCreditHistory()) {
             CreditHistoryStorageDto recDto = new CreditHistoryStorageDto();
-            recDto.setDateStr(sdf.format(record.getDate()));
+
+            // Mapeo seguro de fechas
+            recDto.setDueDateStr(sdf.format(record.getDueDate()));
+            if (record.getSettlementDate() != null) {
+                recDto.setSettlementDateStr(sdf.format(record.getSettlementDate()));
+            }
+
             recDto.setTransactionType(record.getTransactionType().name());
             recDto.setAmount(record.getAmount());
             recDto.setStatus(record.getStatus().name());
+
+            // Ahora la lista existe y puede recibir los elementos en cada iteración
             historyDtos.add(recDto);
         }
+
         dto.setCreditHistory(historyDtos);
         return dto;
     }
@@ -156,7 +178,7 @@ public abstract class AbstractFileUserStore implements UserStore {
      * @docs Maps a structural DTO back into a pure Domain Aggregate.
      */
     private User mapToDomain(UserStorageDto dto) {
-        User user = new User(dto.getSsn(), dto.getName(), dto.getAddress());
+        User user = new User(dto.getSsn(), dto.getName(), dto.getAddress(), dto.getTotalCreditLimit());
         user.setCreditScore(dto.getCreditScore());
         user.setRiskLevel(RiskLevel.valueOf(dto.getRiskLevel()));
 
@@ -164,12 +186,20 @@ public abstract class AbstractFileUserStore implements UserStore {
         if (dto.getCreditHistory() != null) {
             for (CreditHistoryStorageDto recDto : dto.getCreditHistory()) {
                 try {
+                    // Evaluación de nulos para la fecha de pago
+                    Date dueDate = sdf.parse(recDto.getDueDateStr());
+                    Date settlementDate = null;
+
+                    if (recDto.getSettlementDateStr() != null && !recDto.getSettlementDateStr().isEmpty()) {
+                        settlementDate = sdf.parse(recDto.getSettlementDateStr());
+                    }
+
                     CreditHistoryRecord record = new CreditHistoryRecord(
-                            sdf.parse(recDto.getDateStr()),
+                            dueDate,
+                            settlementDate,
                             TransactionType.valueOf(recDto.getTransactionType()),
                             recDto.getAmount(),
-                            TransactionStatus.valueOf(recDto.getStatus())
-                    );
+                            TransactionStatus.valueOf(recDto.getStatus()));
                     user.addCreditRecord(record);
                 } catch (ParseException e) {
                     throw new IllegalStateException("Corrupted date format in persistence file.", e);
