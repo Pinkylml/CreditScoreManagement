@@ -151,7 +151,7 @@ sequenceDiagram
     activate DTO
     DTO-->>Adapter: UserStorageDto
     deactivate DTO
-    Adapter->>Disk: writeToFile(List<UserStorageDto>)
+    Adapter->>Disk: "writeToFile(List<UserStorageDto>)"
     Adapter->>Adapter: Release Write Lock
     Adapter-->>Client: void
     deactivate Adapter

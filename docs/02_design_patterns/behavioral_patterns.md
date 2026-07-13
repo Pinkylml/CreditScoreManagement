@@ -100,7 +100,7 @@ sequenceDiagram
     Base->>Base: loadStateIntoCache()
     Base->>Subclass: readFromFile() (Subclass Hook)
     Note over Subclass: Performs raw JAXB or Gson parsing
-    Subclass-->>Base: List<UserStorageDto>
+    Subclass-->>Base: "List<UserStorageDto>"
     Base->>Base: mapToDomain(dto)
     Base->>Cache: populate in-memory map
     Base-->>Subclass: constructor complete

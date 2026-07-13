@@ -6,7 +6,6 @@ import com.montran.creditscore.domain.model.TransactionType;
 import com.montran.creditscore.domain.model.User;
 import com.montran.creditscore.domain.port.outbound.UserStore;
 import com.montran.creditscore.infrastructure.persistence.PersistenceRegistry;
-import com.montran.creditscore.infrastructure.persistence.StorageType;
 import com.montran.creditscore.service.CreditScoreEngine;
 import com.montran.creditscore.service.notification.CreditEventPublisher;
 import com.montran.creditscore.service.notification.EmailNotificationListener;
@@ -46,7 +45,8 @@ public class Main {
 
     /**
      * @docs Scenario 1: Excellent Credit History
-     * Limit $10,000 | Used $2,000 | 20 on-time | Age 5 years | 3 types | 1 recent inquiry.
+     *       Limit $10,000 | Used $2,000 | 20 on-time | Age 5 years | 3 types | 1
+     *       recent inquiry.
      */
     private static void runScenarioOne(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 1: Excellent Credit History");
@@ -57,7 +57,8 @@ public class Main {
         for (int i = 0; i < 20; i++) {
             int yearsAgo = (i == 0) ? 1 : 6;
             double amount = 2000.0 / 20;
-            TransactionType type = (i % 3 == 0) ? TransactionType.CREDIT_CARD : (i % 3 == 1) ? TransactionType.MORTGAGE : TransactionType.AUTO_LOAN;
+            TransactionType type = (i % 3 == 0) ? TransactionType.CREDIT_CARD
+                    : (i % 3 == 1) ? TransactionType.MORTGAGE : TransactionType.AUTO_LOAN;
 
             engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 5, type));
         }
@@ -68,7 +69,8 @@ public class Main {
 
     /**
      * @docs Scenario 2: Good Credit History with a Few Late Payments
-     * Limit $20,000 | Used $8,000 | 15 payments (13 on-time, 2 late) | Age 8 years | 4 types | 0 recent inquiries.
+     *       Limit $20,000 | Used $8,000 | 15 payments (13 on-time, 2 late) | Age 8
+     *       years | 4 types | 0 recent inquiries.
      */
     private static void runScenarioTwo(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 2: Good Credit History with a Few Late Payments");
@@ -91,7 +93,8 @@ public class Main {
 
     /**
      * @docs Scenario 3: Moderate Credit History with High Utilization
-     * Limit $5,000 | Used $4,500 | 10 payments (9 on-time, 1 late) | Age 3 years | 2 types | 3 recent inquiries.
+     *       Limit $5,000 | Used $4,500 | 10 payments (9 on-time, 1 late) | Age 3
+     *       years | 2 types | 3 recent inquiries.
      */
     private static void runScenarioThree(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 3: Moderate Credit History with High Utilization");
@@ -101,7 +104,8 @@ public class Main {
 
         for (int i = 0; i < 10; i++) {
             int daysAgo = 3 * 365;
-            if (i < 3) daysAgo = 365;
+            if (i < 3)
+                daysAgo = 365;
 
             int daysLate = (i == 0) ? 60 : 5;
             double amount = 4500.0 / 10;
@@ -116,7 +120,8 @@ public class Main {
 
     /**
      * @docs Scenario 4: Poor Credit History with Multiple Late Payments
-     * Limit $15,000 | Used $12,000 | 12 payments (6 on-time, 6 late) | Age 2 years | 1 type | 5 recent inquiries.
+     *       Limit $15,000 | Used $12,000 | 12 payments (6 on-time, 6 late) | Age 2
+     *       years | 1 type | 5 recent inquiries.
      */
     private static void runScenarioFour(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 4: Poor Credit History with Multiple Late Payments");
@@ -126,7 +131,8 @@ public class Main {
 
         for (int i = 0; i < 12; i++) {
             int daysAgo = 2 * 365;
-            if (i < 5) daysAgo = 180;
+            if (i < 5)
+                daysAgo = 180;
 
             int daysLate = (i < 6) ? 90 : 5;
             double amount = 12000.0 / 12;
@@ -140,7 +146,8 @@ public class Main {
 
     /**
      * @docs Scenario 5: New User with No Credit History
-     * Limit $1,000 | Used $100 | 1 payment (on-time) | Age 0.1 years | 1 type | 1 recent inquiry.
+     *       Limit $1,000 | Used $100 | 1 payment (on-time) | Age 0.1 years | 1 type
+     *       | 1 recent inquiry.
      */
     private static void runScenarioFive(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 5: New User with No Credit History");
