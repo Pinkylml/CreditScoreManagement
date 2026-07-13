@@ -1,4 +1,4 @@
-package com.montran.creditscore.domain.infrastructure.config;
+package com.montran.creditscore.infrastructure.config;
 
 import com.montran.creditscore.domain.model.ScoreConfiguration;
 

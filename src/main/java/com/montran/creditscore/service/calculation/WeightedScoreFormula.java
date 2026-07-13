@@ -63,9 +63,7 @@ public class WeightedScoreFormula implements ScoreFormula {
         double totalUsed = 0.0;
 
         for (CreditHistoryRecord record : history) {
-            if (record.isDefaulted()) {
-                totalUsed += record.getAmount();
-            }
+            totalUsed += record.getAmount(); // Sum all utilized credit amounts, regardless of status
         }
 
         if (totalUsed == 0.0) {

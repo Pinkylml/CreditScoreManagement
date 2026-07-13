@@ -150,14 +150,11 @@ public abstract class AbstractFileUserStore implements UserStore {
 
         SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
 
-        // CORRECCIÓN: La lista debe inicializarse antes del bucle para poder almacenar
-        // los datos.
         List<CreditHistoryStorageDto> historyDtos = new ArrayList<>();
 
         for (CreditHistoryRecord record : user.getCreditHistory()) {
             CreditHistoryStorageDto recDto = new CreditHistoryStorageDto();
 
-            // Mapeo seguro de fechas
             recDto.setDueDateStr(sdf.format(record.getDueDate()));
             if (record.getSettlementDate() != null) {
                 recDto.setSettlementDateStr(sdf.format(record.getSettlementDate()));
@@ -166,8 +163,9 @@ public abstract class AbstractFileUserStore implements UserStore {
             recDto.setTransactionType(record.getTransactionType().name());
             recDto.setAmount(record.getAmount());
             recDto.setStatus(record.getStatus().name());
+            recDto.setTransactionId(record.getTransactionId());
+            recDto.setDueDateStr(sdf.format(record.getDueDate()));
 
-            // Ahora la lista existe y puede recibir los elementos en cada iteración
             historyDtos.add(recDto);
         }
 
@@ -187,7 +185,6 @@ public abstract class AbstractFileUserStore implements UserStore {
         if (dto.getCreditHistory() != null) {
             for (CreditHistoryStorageDto recDto : dto.getCreditHistory()) {
                 try {
-                    // Evaluación de nulos para la fecha de pago
                     Date dueDate = sdf.parse(recDto.getDueDateStr());
                     Date settlementDate = null;
 
@@ -196,11 +193,13 @@ public abstract class AbstractFileUserStore implements UserStore {
                     }
 
                     CreditHistoryRecord record = new CreditHistoryRecord(
+                            recDto.getTransactionId(),
                             dueDate,
                             settlementDate,
                             TransactionType.valueOf(recDto.getTransactionType()),
                             recDto.getAmount(),
                             TransactionStatus.valueOf(recDto.getStatus()));
+
                     user.addCreditRecord(record);
                 } catch (ParseException e) {
                     throw new IllegalStateException("Corrupted date format in persistence file.", e);

@@ -26,7 +26,6 @@ import javax.xml.bind.annotation.XmlType;
 })
 public class CreditHistoryStorageDto {
 
-
     @XmlElement(name = "type")
     private String transactionType;
 
@@ -42,6 +41,9 @@ public class CreditHistoryStorageDto {
     @XmlElement(name = "settlementDate")
     private String settlementDateStr;
 
+    @XmlElement(name = "transactionId")
+    private String transactionId;
+
     /**
      * @docs Default zero-argument constructor required for reflection-based data
      *       serialization.
@@ -51,7 +53,6 @@ public class CreditHistoryStorageDto {
     }
 
     // getters and setters
-
 
     public String getTransactionType() {
         return transactionType;
@@ -91,5 +92,13 @@ public class CreditHistoryStorageDto {
 
     public void setSettlementDateStr(String settlementDateStr) {
         this.settlementDateStr = settlementDateStr;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
     }
 }

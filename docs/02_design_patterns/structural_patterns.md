@@ -112,3 +112,63 @@ The abstract adapter structure incorporates concurrency control directly within 
         return Optional.ofNullable(user);
     }
 ```
+
+---
+
+## 4. Facade Design Pattern
+
+### Description & Intent
+The Facade Pattern provides a unified, simplified interface to a set of interfaces in a subsystem. Facade defines a higher-level interface that makes the subsystem easier to use.
+
+In **CreditScoreManagement**, **[CreditScoreEngine](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/CreditScoreEngine.java)** acts as a Facade. Instead of forcing the client application to coordinate the database loading (`UserStore`), mathematical configurations loading (`PropertyWeightLoader`), credit calculations (`ScoreFormula`), risk categorization (`RiskClassifier`), saving the updated models, and sending notifications (`NotificationSender`), the client interacts exclusively with `CreditScoreEngine`.
+
+### Architectural Structure
+
+```mermaid
+classDiagram
+    class CreditScoreEngine {
+        -UserStore userStore
+        -NotificationSender notificationSender
+        -ScoreFormula scoreFormula
+        +CreditScoreEngine(userStore, notificationSender)
+        +registerUser(User user) void
+        +addTransaction(String ssn, CreditHistoryRecord record) void
+        +evaluateProfile(String ssn) void
+        +deleteUser(String ssn) void
+    }
+
+    class UserStore {
+        <<interface>>
+    }
+
+    class NotificationSender {
+        <<interface>>
+    }
+
+    class ScoreFormula {
+        <<interface>>
+    }
+
+    class RiskClassifier {
+        +classify(score) RiskLevel$
+    }
+
+    class PropertyWeightLoader {
+        +loadWeights() ScoreConfiguration$
+    }
+
+    CreditScoreEngine --> UserStore : coordinates
+    CreditScoreEngine --> NotificationSender : coordinates
+    CreditScoreEngine --> ScoreFormula : coordinates
+    CreditScoreEngine ..> RiskClassifier : delegates
+    CreditScoreEngine ..> PropertyWeightLoader : delegates
+```
+
+### Core Orchestration Workflow: `evaluateProfile(String ssn)`
+The facade orchestrates the following operations under a single method call:
+1. **Retrieve**: Obtains the `User` aggregate from [UserStore](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/UserStore.java).
+2. **Configure**: Loads dynamic parameters from [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/infrastructure/config/PropertyWeightLoader.java).
+3. **Calculate**: Evaluates score via [ScoreFormula](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/calculation/ScoreFormula.java).
+4. **Classify**: Resolves risk levels via [RiskClassifier](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/risk/RiskClassifier.java).
+5. **Persist**: Commits changes back to the database.
+6. **Notify**: Triggers asynchronous alerts via [NotificationSender](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/NotificationSender.java) if states shift.

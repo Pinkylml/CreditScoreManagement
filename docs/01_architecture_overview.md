@@ -27,6 +27,7 @@ graph TD
         EmailNotificationListener["EmailNotificationListener (Email Observer)"]:::domain
         SmsNotificationListener["SmsNotificationListener (SMS Observer)"]:::domain
         CreditEventPublisher["CreditEventPublisher (Publisher / Port Impl)"]:::domain
+        Engine["CreditScoreEngine (Facade Orchestrator)"]:::domain
     end
 
     subgraph Ports ["Outbound Ports (SPI Interfaces)"]
@@ -57,6 +58,13 @@ graph TD
     WeightedScoreFormula -->|evaluates| ScoreConfig
     RiskClassifier -->|classifies| User
 
+    %% Facade Orchestration wiring
+    Engine -->|delegates to| UserStore
+    Engine -->|delegates to| NotificationSender
+    Engine -->|delegates to| ScoreFormula
+    Engine -->|delegates to| RiskClassifier
+    Engine -->|delegates to| PropertyWeightLoader
+
     %% Observer wiring
     CreditEventPublisher -.->|implements| NotificationSender
     CreditEventPublisher -->|notifies| CreditEventListener
@@ -82,6 +90,7 @@ The codebase is organized into three distinct layers, each with explicit depende
   - `CreditEventListener`: Observer interface defining the receipt contract for profile alerts.
   - `EmailNotificationListener` & `SmsNotificationListener`: Concrete Observer implementations simulating network-based email and SMS delivery gateways.
   - `CreditEventPublisher`: Subject component acting as the concrete implementation of the outbound port `NotificationSender`, distributing alerts asynchronously to registered observers.
+  - [CreditScoreEngine](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/CreditScoreEngine.java): Facade orchestrator offering a unified interface to register profiles, append transaction logs, evaluate scores, classify risks, and trigger notifications asynchronously.
   - `RiskLevel`, `TransactionStatus`, `TransactionType`: Domain-specific enumerations defining state bounds.
 * **Inward Dependency Constraint**: This layer has **zero dependencies** on external frameworks (e.g., JAXB, Gson), file systems, or networking libraries. It is built using pure Java standard library features.
 
@@ -92,7 +101,7 @@ The codebase is organized into three distinct layers, each with explicit depende
   - `NotificationSender`: Outbound Port declaring messaging actions (`sendNotification`).
 * **Inward Dependency Constraint**: Interface definitions only refer to core domain types.
 
-### C. The Infrastructure Layer (`com.montran.creditscore.infrastructure` & `com.montran.creditscore.domain.infrastructure`)
+### C. The Infrastructure Layer (`com.montran.creditscore.infrastructure`)
 * **Responsibility**: Provides concrete adapters implementing the Port interfaces, handling actual interactions with disk files, formats, frameworks, and third-party libraries.
 * **Key Components**:
   - `XmlUserStore`: A concrete persistence adapter that marshals and unmarshals XML documents using the **JAXB** architecture.

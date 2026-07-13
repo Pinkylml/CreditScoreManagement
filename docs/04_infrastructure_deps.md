@@ -66,7 +66,7 @@ This standard properties configuration file is used to store runtime environment
 | `late.payment.grace.days` | Integer | `30` | Grace period in days before a payment is officially penalized as late. |
 
 ### Configuration Parser: `PropertyWeightLoader`
-The loader class [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/infrastructure/config/PropertyWeightLoader.java) executes properties loading via standard InputStream reads:
+The loader class [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/infrastructure/config/PropertyWeightLoader.java) executes properties loading via standard InputStream reads:
 
 1. **Classpath Resolution**: Attempts to locate `credit-settings.properties` in the application classpath.
 2. **Safe Fallbacks**: If the file is missing or contains invalid integer formats, it captures exceptions and logs warnings to `System.err`, applying the specified default values.

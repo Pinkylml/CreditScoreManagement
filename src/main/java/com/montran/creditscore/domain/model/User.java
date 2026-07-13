@@ -161,4 +161,44 @@ public class User {
     public void clearCreditHistory() {
         this.creditHistory.clear();
     }
+
+    /**
+     * @docs Updates the core identifying information of the user profile.
+     * @param name    The updated name.
+     * @param address The updated address.
+     * @param email   The updated email.
+     */
+    public void updateProfile(String name, String address, String email) {
+        if (name != null && !name.trim().isEmpty())
+            this.name = name;
+        if (address != null && !address.trim().isEmpty())
+            this.address = address;
+        if (email != null && !email.trim().isEmpty())
+            this.email = email;
+    }
+
+    /**
+     * @docs Removes a specific credit history record by its unique identifier.
+     * @param transactionId The ID of the record to remove.
+     * @return true if a record was removed, false otherwise.
+     */
+    public boolean removeCreditRecord(String transactionId) {
+        return this.creditHistory.removeIf(record -> record.getTransactionId().equals(transactionId));
+    }
+
+    /**
+     * @docs Replaces an existing credit history record with an updated version.
+     * @param transactionId The ID of the record to update.
+     * @param updatedRecord The new record data.
+     * @return true if the record was successfully replaced, false otherwise.
+     */
+    public boolean updateCreditRecord(String transactionId, CreditHistoryRecord updatedRecord) {
+        for (int i = 0; i < this.creditHistory.size(); i++) {
+            if (this.creditHistory.get(i).getTransactionId().equals(transactionId)) {
+                this.creditHistory.set(i, updatedRecord);
+                return true;
+            }
+        }
+        return false;
+    }
 }
