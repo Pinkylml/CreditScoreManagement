@@ -26,8 +26,6 @@ import javax.xml.bind.annotation.XmlType;
 })
 public class CreditHistoryStorageDto {
 
-    @XmlElement(name = "date")
-    private String dateStr;
 
     @XmlElement(name = "type")
     private String transactionType;
@@ -54,13 +52,6 @@ public class CreditHistoryStorageDto {
 
     // getters and setters
 
-    public String getDateStr() {
-        return dateStr;
-    }
-
-    public void setDateStr(String dateStr) {
-        this.dateStr = dateStr;
-    }
 
     public String getTransactionType() {
         return transactionType;
