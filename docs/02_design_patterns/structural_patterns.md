@@ -135,6 +135,9 @@ classDiagram
         +addTransaction(String ssn, CreditHistoryRecord record) void
         +evaluateProfile(String ssn) void
         +deleteUser(String ssn) void
+        +editUser(ssn, newName, newAddress, newEmail) void
+        +deleteTransaction(ssn, transactionId) void
+        +editTransaction(ssn, transactionId, updatedRecord) void
     }
 
     class UserStore {
@@ -172,3 +175,13 @@ The facade orchestrates the following operations under a single method call:
 4. **Classify**: Resolves risk levels via [RiskClassifier](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/risk/RiskClassifier.java).
 5. **Persist**: Commits changes back to the database.
 6. **Notify**: Triggers asynchronous alerts via [NotificationSender](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/NotificationSender.java) if states shift.
+
+### Auxiliary Orchestration Workflows
+
+1. **Profile Editing (`editUser`)**:
+   Locates the user by SSN, invokes aggregate profile mutation `user.updateProfile(newName, newAddress, newEmail)` to safely validate and set fields, then saves state back to [UserStore](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/UserStore.java).
+2. **Transaction Deletion (`deleteTransaction`)**:
+   Locates the user by SSN, delegates deletion to `user.removeCreditRecord(transactionId)`, and saves if successfully removed.
+3. **Transaction Modification (`editTransaction`)**:
+   Locates the user by SSN, delegates substitution to `user.updateCreditRecord(transactionId, updatedRecord)`, and saves if successfully updated.
+

@@ -36,15 +36,20 @@ classDiagram
         +getCreditHistory() List~CreditHistoryRecord~
         +addCreditRecord(record) void
         +clearCreditHistory() void
+        +updateProfile(name, address, email) void
+        +removeCreditRecord(transactionId) boolean
+        +updateCreditRecord(transactionId, updatedRecord) boolean
     }
 
     class CreditHistoryRecord {
+        -String transactionId
         -Date dueDate
         -Date settlementDate
         -TransactionType transactionType
         -double amount
         -TransactionStatus status
-        +CreditHistoryRecord(dueDate, settlementDate, transactionType, amount, status)
+        +CreditHistoryRecord(transactionId, dueDate, settlementDate, transactionType, amount, status)
+        +getTransactionId() String
         +getDueDate() Date
         +getSettlementDate() Date
         +getTransactionType() TransactionType
@@ -115,10 +120,13 @@ The `User` class acts as the **Aggregate Root** of its domain boundary.
   - The SSN must be non-null and non-blank during construction.
   - The total credit limit must be strictly greater than zero.
   - Adding records requires a non-null `CreditHistoryRecord` instance.
+  - Modifying user credentials (name, address, email) is restricted to profile updates.
+  - Mutating transaction ledgers (deleting or editing logs) is managed strictly by identifying entries via a unique `transactionId`.
 
 ### B. Value Object: `CreditHistoryRecord`
 An immutable value object representing a financial transaction log.
-* **Equality**: Defined entirely by the values of its attributes (`dueDate`, `settlementDate`, `transactionType`, `amount`, `status`) rather than a database ID.
+* **Identity**: Uniquely designated within the user profile boundary by a logical `transactionId` (automatically generated as a UUID if omitted).
+* **Equality**: Defined entirely by the values of its attributes (`transactionId`, `dueDate`, `settlementDate`, `transactionType`, `amount`, `status`) rather than a database primary key.
 * **Immutability**: Designed to be thread-safe and read-only. Once instantiated, its properties cannot be changed.
 
 ### C. Value Object: `ScoreConfiguration`
@@ -209,7 +217,7 @@ public User(String ssn, String name, String address, String email, double totalC
 
 ### `CreditHistoryRecord` Validations:
 ```java
-public CreditHistoryRecord(Date dueDate, Date settlementDate, TransactionType transactionType, double amount, TransactionStatus status) {
+public CreditHistoryRecord(String transactionId, Date dueDate, Date settlementDate, TransactionType transactionType, double amount, TransactionStatus status) {
     if (dueDate == null) {
         throw new IllegalArgumentException("Transaction due date cannot be null.");
     }
@@ -222,6 +230,7 @@ public CreditHistoryRecord(Date dueDate, Date settlementDate, TransactionType tr
     if (amount < 0.0) {
         throw new IllegalArgumentException("Historical financial transaction amount cannot be negative.");
     }
+    this.transactionId = (transactionId != null && !transactionId.trim().isEmpty()) ? transactionId : UUID.randomUUID().toString();
     this.dueDate = new Date(dueDate.getTime());
     this.settlementDate = (settlementDate != null) ? new Date(settlementDate.getTime()) : null;
     this.transactionType = transactionType;

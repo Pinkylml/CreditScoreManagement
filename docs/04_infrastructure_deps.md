@@ -94,6 +94,7 @@ The JSON structure managed by the Google Gson engine outputs flat collections ne
       "totalCreditLimit": 10000.0,
       "creditHistory": [
         {
+          "transactionId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
           "dueDateStr": "2026-07-13",
           "settlementDateStr": "2026-07-14",
           "transactionType": "CREDIT_CARD",
@@ -123,6 +124,7 @@ The XML structure managed by the JAXB architecture maps DTO classes to custom XM
             <totalCreditLimit>10000.0</totalCreditLimit>
             <creditHistory>
                 <record>
+                    <transactionId>a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d</transactionId>
                     <dueDate>2026-07-13</dueDate>
                     <settlementDate>2026-07-14</settlementDate>
                     <type>CREDIT_CARD</type>

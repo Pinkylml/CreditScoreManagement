@@ -36,6 +36,7 @@ class PersistenceIntegrationTest {
 
         // Attach an immutable historical record
         CreditHistoryRecord record = new CreditHistoryRecord(
+                "tx-123",
                 new Date(),
                 new Date(),
                 TransactionType.CREDIT_CARD,
@@ -80,6 +81,7 @@ class PersistenceIntegrationTest {
         assertEquals(testUser.getTotalCreditLimit(), retrieved.getTotalCreditLimit());
         assertEquals(testUser.getCreditScore(), retrieved.getCreditScore());
         assertEquals(1, retrieved.getCreditHistory().size());
+        assertEquals("tx-123", retrieved.getCreditHistory().get(0).getTransactionId());
         assertEquals(TransactionType.CREDIT_CARD, retrieved.getCreditHistory().get(0).getTransactionType());
     }
 
@@ -102,6 +104,7 @@ class PersistenceIntegrationTest {
         assertEquals(testUser.getTotalCreditLimit(), retrieved.getTotalCreditLimit());
         assertEquals(testUser.getCreditScore(), retrieved.getCreditScore());
         assertEquals(1, retrieved.getCreditHistory().size());
+        assertEquals("tx-123", retrieved.getCreditHistory().get(0).getTransactionId());
         assertEquals(TransactionStatus.PAID, retrieved.getCreditHistory().get(0).getStatus());
     }
 
