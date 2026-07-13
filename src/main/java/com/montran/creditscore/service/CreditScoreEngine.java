@@ -106,7 +106,7 @@ public class CreditScoreEngine {
         user.setCreditScore(newScore);
 
         // Classify operational risk bounds
-        RiskLevel newRisk = RiskClassifier.classify(newScore);
+        RiskLevel newRisk = RiskClassifier.classify(newScore, config.getRiskThresholdLow(), config.getRiskThresholdMedium());
         user.setRiskLevel(newRisk);
 
         // Commit updated state to physical storage

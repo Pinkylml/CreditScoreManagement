@@ -11,14 +11,11 @@ import com.montran.creditscore.service.CreditScoreEngine;
 import com.montran.creditscore.service.notification.CreditEventPublisher;
 import com.montran.creditscore.service.notification.EmailNotificationListener;
 import com.montran.creditscore.service.notification.SmsNotificationListener;
+import com.montran.creditscore.infrastructure.config.PropertyWeightLoader;
 
 import java.util.Calendar;
 import java.util.Date;
 
-/**
- * @docs Application entry point and demonstration harness.
- * <p><b>Execution Details:</b> Demonstrates the core orchestration, risk assessment, and observer notifications matching the 5 exact scenarios outlined in the technical specification.</p>
- */
 public class Main {
 
     public static void main(String[] args) {
@@ -26,8 +23,7 @@ public class Main {
         System.out.println("   INITIALIZING CREDIT SCORE MANAGEMENT SYSTEM     ");
         System.out.println("===================================================\n");
 
-        // 1. System Initialization & Dependency Wiring
-        UserStore store = PersistenceRegistry.getStore(StorageType.JSON);
+        UserStore store = PersistenceRegistry.getStore(PropertyWeightLoader.loadStorageType());
 
         CreditEventPublisher publisher = new CreditEventPublisher();
         publisher.subscribe(new EmailNotificationListener());
@@ -35,14 +31,12 @@ public class Main {
 
         CreditScoreEngine engine = new CreditScoreEngine(store, publisher);
 
-        // 2. Execute Demo Scenarios
         runScenarioOne(engine);
         runScenarioTwo(engine);
         runScenarioThree(engine);
         runScenarioFour(engine);
         runScenarioFive(engine);
 
-        // 3. Demonstrate User Management (Edit & Delete)
         demonstrateUserManagement(engine);
 
         System.out.println("\n===================================================");
@@ -60,13 +54,12 @@ public class Main {
         User user = new User(ssn, "Jefferson Cando", "Quito, Ecuador", "jeff@example.com", 10000.0);
         engine.registerUser(user);
 
-        // Add 1 inquiry in the last 2 years (e.g., 1 year ago), others older (e.g., 6 years ago)
         for (int i = 0; i < 20; i++) {
             int yearsAgo = (i == 0) ? 1 : 6;
-            double amount = 2000.0 / 20; // Spread the $2000 utilization
+            double amount = 2000.0 / 20;
             TransactionType type = (i % 3 == 0) ? TransactionType.CREDIT_CARD : (i % 3 == 1) ? TransactionType.MORTGAGE : TransactionType.AUTO_LOAN;
 
-            engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 5, type)); // 5 days late is within 30-day grace period (on-time)
+            engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 5, type));
         }
 
         engine.evaluateProfile(ssn);
@@ -84,10 +77,10 @@ public class Main {
         engine.registerUser(user);
 
         for (int i = 0; i < 15; i++) {
-            int yearsAgo = 8; // Age 8 years, 0 recent inquiries (older than 2 years)
-            int daysLate = (i < 2) ? 45 : 10; // 2 late (>30 days), 13 on-time
+            int yearsAgo = 8;
+            int daysLate = (i < 2) ? 45 : 10;
             double amount = 8000.0 / 15;
-            TransactionType type = TransactionType.values()[i % 4]; // 4 distinct types
+            TransactionType type = TransactionType.values()[i % 4];
 
             engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, daysLate, type));
         }
@@ -107,12 +100,12 @@ public class Main {
         engine.registerUser(user);
 
         for (int i = 0; i < 10; i++) {
-            int daysAgo = 3 * 365; // Average 3 years
-            if (i < 3) daysAgo = 365; // 3 recent inquiries (1 year ago)
+            int daysAgo = 3 * 365;
+            if (i < 3) daysAgo = 365;
 
-            int daysLate = (i == 0) ? 60 : 5; // 1 late payment
+            int daysLate = (i == 0) ? 60 : 5;
             double amount = 4500.0 / 10;
-            TransactionType type = (i % 2 == 0) ? TransactionType.CREDIT_CARD : TransactionType.AUTO_LOAN; // 2 types
+            TransactionType type = (i % 2 == 0) ? TransactionType.CREDIT_CARD : TransactionType.AUTO_LOAN;
 
             engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, type));
         }
@@ -132,13 +125,13 @@ public class Main {
         engine.registerUser(user);
 
         for (int i = 0; i < 12; i++) {
-            int daysAgo = 2 * 365; // Average 2 years
-            if (i < 5) daysAgo = 180; // 5 recent inquiries (6 months ago)
+            int daysAgo = 2 * 365;
+            if (i < 5) daysAgo = 180;
 
-            int daysLate = (i < 6) ? 90 : 5; // 6 late payments
+            int daysLate = (i < 6) ? 90 : 5;
             double amount = 12000.0 / 12;
 
-            engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, TransactionType.CREDIT_CARD)); // 1 type
+            engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, TransactionType.CREDIT_CARD));
         }
 
         engine.evaluateProfile(ssn);
@@ -155,25 +148,19 @@ public class Main {
         User user = new User(ssn, "David Chen", "Tokyo, Japan", "david@example.com", 1000.0);
         engine.registerUser(user);
 
-        // 0.1 years is approx 36 days
         engine.addTransaction(ssn, createRecord(100.0, 36, 2, TransactionType.CREDIT_CARD));
 
         engine.evaluateProfile(ssn);
         System.out.println("Scenario 5 Evaluated.\n");
     }
 
-    /**
-     * @docs Demonstrates the CRUD constraints explicitly requested in Section 3 of the examination.
-     */
     private static void demonstrateUserManagement(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING USER MANAGEMENT & TRANSACTION EDITING DEMO");
         String ssn = "111-22-3333";
 
-        // 1. Edit User
         System.out.println("Editing User Profile for SSN: " + ssn);
         engine.editUser(ssn, "Jefferson S. Cando", "Guayaquil, Ecuador", "jeff.cando@example.com");
 
-        // 2. Add and Delete a Transaction
         System.out.println("Adding temporary transaction to be deleted...");
         CreditHistoryRecord tempRecord = createRecord(500.0, 10, 0, TransactionType.LOAN);
         engine.addTransaction(ssn, tempRecord);
@@ -181,14 +168,10 @@ public class Main {
         System.out.println("Deleting transaction: " + tempRecord.getTransactionId());
         engine.deleteTransaction(ssn, tempRecord.getTransactionId());
 
-        // 3. Delete User
         System.out.println("Deleting User Profile for SSN: 555-66-7777");
         engine.deleteUser("555-66-7777");
     }
 
-    /**
-     * @docs Internal utility to generate precise, deterministic date offsets for mathematical evaluations.
-     */
     private static CreditHistoryRecord createRecord(double amount, int daysAgoDue, int daysLate, TransactionType type) {
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DAY_OF_YEAR, -daysAgoDue);

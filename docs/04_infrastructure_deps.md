@@ -64,6 +64,9 @@ This standard properties configuration file is used to store runtime environment
 | `weight.credit.types` | Integer | `10` | Target weight applied to the diversity of account categories held. |
 | `weight.recent.inquiries` | Integer | `10` | Target weight applied to penalize recent hard credit inquiries. |
 | `late.payment.grace.days` | Integer | `30` | Grace period in days before a payment is officially penalized as late. |
+| `storage.type` | String | `XML` | Active persistence storage adapter format type (`JSON` or `XML`). |
+| `risk.threshold.low` | Double | `75.0` | Credit score boundary value above which user risk classification shifts to LOW. |
+| `risk.threshold.medium` | Double | `50.0` | Credit score boundary value below which user risk classification shifts to HIGH. |
 
 ### Configuration Parser: `PropertyWeightLoader`
 The loader class [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/infrastructure/config/PropertyWeightLoader.java) executes properties loading via standard InputStream reads:
@@ -71,6 +74,7 @@ The loader class [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulac
 1. **Classpath Resolution**: Attempts to locate `credit-settings.properties` in the application classpath.
 2. **Safe Fallbacks**: If the file is missing or contains invalid integer formats, it captures exceptions and logs warnings to `System.err`, applying the specified default values.
 3. **Domain Mapping**: Outputs a fully populated [ScoreConfiguration](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/model/ScoreConfiguration.java) object which acts as an immutable Value Object for calculation threads.
+4. **Storage Adapter Determination**: Resolves the configured storage format at startup via `loadStorageType()`, falling back to `StorageType.XML` safely if keys are missing or values are malformed.
 
 ---
 

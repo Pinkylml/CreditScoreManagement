@@ -65,17 +65,21 @@ classDiagram
         -int creditTypesWeight
         -int recentInquiriesWeight
         -int latePaymentGraceDays
-        +ScoreConfiguration(utilizationWeight, paymentHistoryWeight, creditAgeWeight, creditTypesWeight, recentInquiriesWeight, latePaymentGraceDays)
+        -double riskThresholdLow
+        -double riskThresholdMedium
+        +ScoreConfiguration(utilizationWeight, paymentHistoryWeight, creditAgeWeight, creditTypesWeight, recentInquiriesWeight, latePaymentGraceDays, riskThresholdLow, riskThresholdMedium)
         +getUtilizationWeight() int
         +getPaymentHistoryWeight() int
         +getCreditAgeWeight() int
         +getCreditTypesWeight() int
         +getRecentInquiriesWeight() int
         +getLatePaymentGraceDays() int
+        +getRiskThresholdLow() double
+        +getRiskThresholdMedium() double
     }
 
     class RiskClassifier {
-        +classify(score) RiskLevel$
+        +classify(score, lowThreshold, mediumThreshold) RiskLevel$
     }
 
     class RiskLevel {

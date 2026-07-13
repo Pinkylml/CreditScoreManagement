@@ -16,14 +16,12 @@ public final class RiskClassifier {
     }
 
     /**
-     * @docs Resolves the definitive RiskLevel matching a provided scalar credit score.
-     * @param score The double rating primitive value bounded between 0.0 and 100.0.
-     * @return The resolved RiskLevel enum matching the predefined operational classification ranges.
+     * @docs Classifies the calculated credit score into standard domain risk profiles using dynamic thresholds.
      */
-    public static RiskLevel classify(double score) {
-        if (score >= 75.0) {
+    public static RiskLevel classify(double score, double lowThreshold, double mediumThreshold) {
+        if (score >= lowThreshold) {
             return RiskLevel.LOW;
-        } else if (score >= 50.0) {
+        } else if (score >= mediumThreshold) {
             return RiskLevel.MEDIUM;
         } else {
             return RiskLevel.HIGH;

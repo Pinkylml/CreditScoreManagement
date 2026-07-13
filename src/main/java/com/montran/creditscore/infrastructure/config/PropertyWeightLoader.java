@@ -1,6 +1,7 @@
 package com.montran.creditscore.infrastructure.config;
 
 import com.montran.creditscore.domain.model.ScoreConfiguration;
+import com.montran.creditscore.infrastructure.persistence.StorageType;
 
 import java.io.InputStream;
 import java.util.Properties;
@@ -45,8 +46,19 @@ public class PropertyWeightLoader {
         int creditTypes = parseProperty(props, "weight.credit.types", 10);
         int recentInquiries = parseProperty(props, "weight.recent.inquiries", 10);
         int graceDays = parseProperty(props, "late.payment.grace.days", 30);
+        double lowRisk = parseDoubleProperty(props, "risk.threshold.low", 75.0);
+        double mediumRisk = parseDoubleProperty(props, "risk.threshold.medium", 50.0);
 
-        return new ScoreConfiguration(utilization, paymentHistory, creditAge, creditTypes, recentInquiries, graceDays);
+        return new ScoreConfiguration(utilization, paymentHistory, creditAge, creditTypes, recentInquiries, graceDays, lowRisk, mediumRisk);
+    }
+
+    private static double parseDoubleProperty(Properties props, String key, double defaultValue) {
+        String val = props.getProperty(key);
+        if (val != null) {
+            try { return Double.parseDouble(val.trim()); } 
+            catch (NumberFormatException e) { System.err.println("Warning: Invalid number format for property " + key); }
+        }
+        return defaultValue;
     }
 
     /**
@@ -62,5 +74,27 @@ public class PropertyWeightLoader {
             }
         }
         return defaultValue;
+    }
+
+    /**
+     * @docs Reads the storage configuration from the properties file, defaulting safely to XML if missing or malformed.
+     * @return The configured StorageType enum constant.
+     */
+    public static StorageType loadStorageType() {
+        Properties props = new Properties();
+        try (InputStream in = PropertyWeightLoader.class.getClassLoader().getResourceAsStream("credit-settings.properties")) {
+            if (in != null) {
+                props.load(in);
+                String typeStr = props.getProperty("storage.type");
+                if (typeStr != null && !typeStr.trim().isEmpty()) {
+                    return StorageType.valueOf(typeStr.trim().toUpperCase());
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("Warning: Invalid storage.type configuration detected. Defaulting safely to XML.");
+        } catch (Exception e) {
+            System.err.println("Warning: Could not read settings file for storage type. Defaulting safely to XML.");
+        }
+        return StorageType.XML;
     }
 }

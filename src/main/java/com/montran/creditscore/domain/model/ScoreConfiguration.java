@@ -12,16 +12,21 @@ public final class ScoreConfiguration {
     private final int creditTypesWeight;
     private final int recentInquiriesWeight;
     private final int latePaymentGraceDays;
+    private final double riskThresholdLow;
+    private final double riskThresholdMedium;
 
     public ScoreConfiguration(int utilizationWeight, int paymentHistoryWeight,
             int creditAgeWeight, int creditTypesWeight,
-            int recentInquiriesWeight, int latePaymentGraceDays) {
+            int recentInquiriesWeight, int latePaymentGraceDays,
+            double riskThresholdLow, double riskThresholdMedium) {
         this.utilizationWeight = utilizationWeight;
         this.paymentHistoryWeight = paymentHistoryWeight;
         this.creditAgeWeight = creditAgeWeight;
         this.creditTypesWeight = creditTypesWeight;
         this.recentInquiriesWeight = recentInquiriesWeight;
         this.latePaymentGraceDays = latePaymentGraceDays;
+        this.riskThresholdLow = riskThresholdLow;
+        this.riskThresholdMedium = riskThresholdMedium;
     }
 
     /**
@@ -67,5 +72,13 @@ public final class ScoreConfiguration {
 
     public int getLatePaymentGraceDays() {
         return latePaymentGraceDays;
+    }
+
+    public double getRiskThresholdLow() {
+        return riskThresholdLow;
+    }
+
+    public double getRiskThresholdMedium() {
+        return riskThresholdMedium;
     }
 }
