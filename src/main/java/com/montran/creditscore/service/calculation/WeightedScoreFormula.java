@@ -71,7 +71,7 @@ public class WeightedScoreFormula implements ScoreFormula {
         }
 
         double ratio = totalUsed / totalLimit;
-        return ratio * maxWeight;
+        return Math.min(ratio * maxWeight, maxWeight);
     }
 
     /**
@@ -105,7 +105,7 @@ public class WeightedScoreFormula implements ScoreFormula {
             }
         }
 
-        return ((double) onTimePayments / totalPayments) * maxWeight;
+        return Math.min(((double) onTimePayments / totalPayments) * maxWeight, maxWeight);
     }
 
     /**
@@ -131,7 +131,7 @@ public class WeightedScoreFormula implements ScoreFormula {
         }
 
         double averageAgeInYears = (double) totalAgeInMillis / history.size() / (1000.0 * 60 * 60 * 24 * 365);
-        return (averageAgeInYears / 10.0) * maxWeight;
+        return Math.min((averageAgeInYears / 10.0) * maxWeight, maxWeight);
     }
 
     /**
