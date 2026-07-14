@@ -4,18 +4,17 @@ import com.montran.creditscore.domain.model.ScoreConfiguration;
 import com.montran.creditscore.domain.model.User;
 
 /**
- * @docs Strategy interface abstracting the mathematical logic needed to compute a credit rating.
- * <p><b>Design Justification:</b> Satisfies the Open/Closed Principle (OCP). Different formula implementations can be swapped seamlessly without affecting the core orchestration services.</p>
+ * Strategy interface for credit score calculation.
+ * Swap implementations here to change the scoring model without touching the engine.
  */
 public interface ScoreFormula {
 
     /**
-     * @docs Computes the dynamic scalar credit rating score for a target user profile
-     * based on active history rules.
-     * @param user The non-null User aggregate root whose history is to be evaluated.
-     * @param config The customizable configuration parameters defining factor weights.
-     * @return A double primitive representing the final calculated credit score,
-     * bounded between 0.0 and 100.0.
+     * Calculates a credit score for the given user.
+     *
+     * @param user   The user whose history will be evaluated.
+     * @param config The scoring weights and thresholds to apply.
+     * @return A score between 0.0 and 100.0.
      */
     double calculate(User user, ScoreConfiguration config);
 }

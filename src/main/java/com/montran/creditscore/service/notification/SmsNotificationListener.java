@@ -2,10 +2,7 @@ package com.montran.creditscore.service.notification;
 
 import com.montran.creditscore.domain.model.User;
 
-/**
- * @docs Concrete observer implementation simulating a Short Message Service
- *       (SMS) delivery gateway.
- */
+/** Simulates SMS delivery for credit event notifications. */
 public class SmsNotificationListener implements CreditEventListener {
 
     @Override

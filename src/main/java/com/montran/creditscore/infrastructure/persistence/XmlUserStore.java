@@ -11,18 +11,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @docs Concrete adapter utilizing JAXB architecture to marshal/unmarshal data
- * structures to XML files.
- */
-
+/** File-backed user store that reads and writes {@code users.xml} using JAXB. */
 public class XmlUserStore extends AbstractFileUserStore {
-    /** @docs File path target representing the primary XML database location. */
+
     private static final String FILE_PATH = "users.xml";
 
-    /**
-     * @docs Initializes the XML persistence engine and triggers the superclass cache load.
-     */
     public XmlUserStore() {
         super();
     }

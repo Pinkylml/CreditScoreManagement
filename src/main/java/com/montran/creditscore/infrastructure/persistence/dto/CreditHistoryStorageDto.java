@@ -6,15 +6,9 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlType;
 
 /**
- * @docs Data Transfer Object representing a historical transaction entry for
- *       file-based persistence schemes.
- *       <p>
- *       <b>Design Justification:</b> Decouples serialization structures from
- *       the
- *       immutable Core Domain models. Features mutable attributes and a
- *       zero-argument
- *       constructor to meet the reflection demands of JAXB and Gson libraries.
- *       </p>
+ * Flat, mutable representation of a {@link com.montran.creditscore.domain.model.CreditHistoryRecord}
+ * used exclusively for file serialization. Stores dates as plain strings (yyyy-MM-dd)
+ * because JAXB and Gson cannot natively handle {@code java.util.Date}.
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "CreditHistoryRecord", propOrder = {
@@ -44,11 +38,6 @@ public class CreditHistoryStorageDto {
 
     @XmlElement(name = "transactionId")
     private String transactionId;
-
-    /**
-     * @docs Default zero-argument constructor required for reflection-based data
-     *       serialization.
-     */
 
     public CreditHistoryStorageDto() {
     }

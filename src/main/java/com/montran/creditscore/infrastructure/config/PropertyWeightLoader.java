@@ -7,25 +7,23 @@ import java.io.InputStream;
 import java.util.Properties;
 
 /**
- * @docs Infrastructure component dedicated to parsing external configuration files for dynamic calculation adjustments.
- * <p><b>Design Justification:</b> Adheres to the Single Responsibility Principle (SRP). It exclusively manages file I/O and properties extraction, isolating these concerns from the core calculation strategies.</p>
+ * Reads {@code credit-settings.properties} from the classpath and builds
+ * configuration objects from it. Falls back to hardcoded defaults for any
+ * missing or malformed property so the system always starts cleanly.
  */
 public class PropertyWeightLoader {
 
     private static final String PROPERTIES_FILE = "credit-settings.properties";
 
-    /**
-     * @docs Private constructor to enforce static utility usage.
-     */
-    private PropertyWeightLoader(){
+    private PropertyWeightLoader() {
     }
 
     /**
-     * @docs Loads the configuration weights from the classpath.
-     * Applies safe defaults if the file is missing or properties are malformed.
-     * @return A fully populated ScoreConfiguration domain object.
+     * Loads scoring weights, grace period, and risk thresholds from the properties file.
+     * Falls back to specification defaults if the file is missing or a value cannot be parsed.
+     *
+     * @return A fully populated {@link ScoreConfiguration}.
      */
-
     public static ScoreConfiguration loadWeights() {
         Properties props = new Properties();
 
@@ -39,7 +37,6 @@ public class PropertyWeightLoader {
             System.err.println("Error reading " + PROPERTIES_FILE + ". Applying system defaults. Reason: " + e.getMessage());
         }
 
-        // Parse with strict fallbacks to the standard specification rules
         int utilization = parseProperty(props, "weight.credit.utilization", 30);
         int paymentHistory = parseProperty(props, "weight.payment.history", 35);
         int creditAge = parseProperty(props, "weight.credit.age", 15);
@@ -55,15 +52,12 @@ public class PropertyWeightLoader {
     private static double parseDoubleProperty(Properties props, String key, double defaultValue) {
         String val = props.getProperty(key);
         if (val != null) {
-            try { return Double.parseDouble(val.trim()); } 
+            try { return Double.parseDouble(val.trim()); }
             catch (NumberFormatException e) { System.err.println("Warning: Invalid number format for property " + key); }
         }
         return defaultValue;
     }
 
-    /**
-     * @docs Safely extracts and parses an integer property, returning a fallback default if parsing fails.
-     */
     private static int parseProperty(Properties props, String key, int defaultValue) {
         String value = props.getProperty(key);
         if (value != null) {
@@ -77,8 +71,8 @@ public class PropertyWeightLoader {
     }
 
     /**
-     * @docs Reads the storage configuration from the properties file, defaulting safely to XML if missing or malformed.
-     * @return The configured StorageType enum constant.
+     * Reads the {@code storage.type} property and returns the matching {@link StorageType}.
+     * Defaults to XML if the value is missing, blank, or unrecognized.
      */
     public static StorageType loadStorageType() {
         Properties props = new Properties();

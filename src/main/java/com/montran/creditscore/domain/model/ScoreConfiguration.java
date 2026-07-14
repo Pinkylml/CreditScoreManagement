@@ -1,8 +1,9 @@
 package com.montran.creditscore.domain.model;
 
 /**
- * @docs Domain Value Object encapsulating the mathematical weights applied
- *       during credit score evaluation.
+ * Immutable snapshot of all scoring parameters loaded from {@code credit-settings.properties}.
+ * Passed to the formula engine on every evaluation so score weights and thresholds
+ * can be adjusted at runtime without touching the code.
  */
 public final class ScoreConfiguration {
 
@@ -29,43 +30,22 @@ public final class ScoreConfiguration {
         this.riskThresholdMedium = riskThresholdMedium;
     }
 
-    /**
-     * @docs Gets the maximum point allocation for the credit utilization ratio.
-     * @return Integer weight value.
-     */
     public int getUtilizationWeight() {
         return utilizationWeight;
     }
 
-    /**
-     * @docs Gets the maximum point allocation for on-time payment history.
-     * @return Integer weight value.
-     */
     public int getPaymentHistoryWeight() {
         return paymentHistoryWeight;
     }
 
-    /**
-     * @docs Gets the maximum point allocation for the average age of credit
-     *       accounts.
-     * @return Integer weight value.
-     */
     public int getCreditAgeWeight() {
         return creditAgeWeight;
     }
 
-    /**
-     * @docs Gets the maximum point allocation for diverse credit type ownership.
-     * @return Integer weight value.
-     */
     public int getCreditTypesWeight() {
         return creditTypesWeight;
     }
 
-    /**
-     * @docs Gets the maximum penalty allocation for recent hard inquiries.
-     * @return Integer weight value.
-     */
     public int getRecentInquiriesWeight() {
         return recentInquiriesWeight;
     }

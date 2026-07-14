@@ -3,19 +3,16 @@ package com.montran.creditscore.domain.port.outbound;
 import com.montran.creditscore.domain.model.User;
 
 /**
- * @docs Outbound port abstraction governing communications and alert management.
- * <p><b>Design Justification:</b> Enforces the Single Responsibility Principle (SRP)
- * by ensuring that credit scoring routines remain completely separated from notification
- * channels (e.g., mail templates, network communication protocols, or SMS systems).</p>
+ * Outbound port for sending credit event alerts to users.
+ * Concrete implementations handle the actual delivery channel (email, SMS, etc.).
  */
 public interface NotificationSender {
 
     /**
-     * @docs Transmits an alert message to a user informing them of significant
-     * changes to their profile.
-     * @param user The User aggregate root instance whose profile triggered
-     * the modification event.
-     * @param message Description text summarizing the score or risk alteration parameters.
+     * Sends an alert message to a user about a significant change to their credit profile.
+     *
+     * @param user    The user whose profile triggered the event.
+     * @param message A human-readable description of the change.
      */
     void sendNotification(User user, String message);
 }

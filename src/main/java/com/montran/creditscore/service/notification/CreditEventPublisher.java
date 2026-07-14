@@ -8,39 +8,23 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * @docs Subject implementation for the Observer Pattern managing notification
- *       subscriptions and broadcasting events.
- *       <p>
- *       <b>Design Justification:</b> Implements the Outbound Port
- *       'NotificationSender'. Utilizes asynchronous execution threads via
- *       CompletableFuture to ensure the main mathematical evaluation threads
- *       are never blocked by high-latency external delivery systems.
- *       </p>
+ * Observer-pattern publisher that implements {@link NotificationSender}.
+ * Dispatches credit events asynchronously to all registered listeners so that
+ * slow delivery channels (email, SMS) never block the scoring thread.
+ * Uses {@link CopyOnWriteArrayList} to allow safe listener registration during event dispatch.
  */
 public class CreditEventPublisher implements NotificationSender {
 
-    /**
-     * @docs Thread-safe collection holding active observer subscriptions.
-     *       Utilizes CopyOnWriteArrayList to prevent
-     *       ConcurrentModificationExceptions during active iteration.
-     */
     private final List<CreditEventListener> listeners = new CopyOnWriteArrayList<>();
 
-    /**
-     * @docs Subscribes a new observer to receive future credit events.
-     * @param listener The non-null event listener to append to the broadcast list.
-     */
+    /** Registers a listener to receive future credit events. */
     public void subscribe(CreditEventListener listener) {
         if (listener != null) {
             listeners.add(listener);
         }
     }
 
-    /**
-     * @docs Unsubscribes an existing observer to halt their reception of credit
-     *       events.
-     * @param listener The event listener to remove from the broadcast list.
-     */
+    /** Removes a previously registered listener. */
     public void unsubscribe(CreditEventListener listener) {
         if (listener != null) {
             listeners.remove(listener);

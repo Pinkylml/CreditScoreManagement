@@ -5,41 +5,25 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * @docs Outbound Service Provider Interface (SPI) defining core
- * persistence operations for User aggregates.
- * <p><b>Design Justification:</b> Decouples the business and logic layers
- * from physical data engines (XML, JSON, or future database drivers).
- * The system interacts solely with this abstraction.</p>
+ * Outbound port defining persistence operations for User aggregates.
+ * The domain layer depends only on this interface, keeping it decoupled
+ * from any specific storage technology (XML, JSON, SQL, etc.).
  */
-
 public interface UserStore {
-    /**
-     * @docs Persists a new user record or completely replaces an existing
-     * one within the storage engine.
-     * @param user The non-null User aggregate root instance to persist.
-     */
+
+    /** Saves or fully replaces a user record in the store. */
     void save(User user);
 
-    /**
-     * @docs Performs a primary key lookup using the unique Social Security Number (SSN).
-     * @param ssn The unique identity token of the user.
-     * @return An Optional containing the populated User domain aggregate root, or empty
-     * if not located.
-     */
+    /** Looks up a user by SSN. Returns empty if not found. */
     Optional<User> findBySsn(String ssn);
 
-    /**
-     * @docs Obtains a complete collection of all users managed inside the storage medium.
-     * @return A List containing all active User aggregate instances.
-     */
+    /** Returns all users currently in the store. */
     List<User> findAll();
 
     /**
-     * @docs Permanently deletes a targeted user profile from the infrastructure storage
-     * file using their primary key.
-     * @param ssn The unique Social Security Number of the user to be expunged.
-     * @return true if the execution successfully removed the match, false if the
-     * profile was not found.
+     * Deletes a user by SSN.
+     *
+     * @return {@code true} if the user was found and deleted, {@code false} if not found.
      */
     boolean deleteBySsn(String ssn);
 }

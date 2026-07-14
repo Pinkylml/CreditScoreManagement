@@ -1,9 +1,6 @@
 package com.montran.creditscore.infrastructure.persistence;
 
-/**
- * @docs Defines the supported physical storage engine implementations
- * available to the application.
- */
+/** Supported storage engine formats for the persistence layer. */
 public enum StorageType {
     XML,
     JSON

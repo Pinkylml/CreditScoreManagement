@@ -43,11 +43,7 @@ public class Main {
         System.out.println("===================================================");
     }
 
-    /**
-     * @docs Scenario 1: Excellent Credit History
-     *       Limit $10,000 | Used $2,000 | 20 on-time | Age 5 years | 3 types | 1
-     *       recent inquiry.
-     */
+    // Scenario 1 – Excellent history: $10,000 limit, $2,000 used, 20 on-time payments, 5-yr age, 3 types, 1 recent inquiry.
     private static void runScenarioOne(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 1: Excellent Credit History");
         String ssn = "111-22-3333";
@@ -67,11 +63,7 @@ public class Main {
         System.out.println("Scenario 1 Evaluated.\n");
     }
 
-    /**
-     * @docs Scenario 2: Good Credit History with a Few Late Payments
-     *       Limit $20,000 | Used $8,000 | 15 payments (13 on-time, 2 late) | Age 8
-     *       years | 4 types | 0 recent inquiries.
-     */
+    // Scenario 2 – Good history with late payments: $20,000 limit, $8,000 used, 13/15 on-time, 8-yr age, 4 types, 0 recent inquiries.
     private static void runScenarioTwo(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 2: Good Credit History with a Few Late Payments");
         String ssn = "222-33-4444";
@@ -91,11 +83,7 @@ public class Main {
         System.out.println("Scenario 2 Evaluated.\n");
     }
 
-    /**
-     * @docs Scenario 3: Moderate Credit History with High Utilization
-     *       Limit $5,000 | Used $4,500 | 10 payments (9 on-time, 1 late) | Age 3
-     *       years | 2 types | 3 recent inquiries.
-     */
+    // Scenario 3 – High utilization: $5,000 limit, $4,500 used, 9/10 on-time, 3-yr age, 2 types, 3 recent inquiries.
     private static void runScenarioThree(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 3: Moderate Credit History with High Utilization");
         String ssn = "333-44-5555";
@@ -118,11 +106,7 @@ public class Main {
         System.out.println("Scenario 3 Evaluated.\n");
     }
 
-    /**
-     * @docs Scenario 4: Poor Credit History with Multiple Late Payments
-     *       Limit $15,000 | Used $12,000 | 12 payments (6 on-time, 6 late) | Age 2
-     *       years | 1 type | 5 recent inquiries.
-     */
+    // Scenario 4 – Poor history: $15,000 limit, $12,000 used, 6/12 on-time, 2-yr age, 1 type, 5 recent inquiries.
     private static void runScenarioFour(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 4: Poor Credit History with Multiple Late Payments");
         String ssn = "444-55-6666";
@@ -144,11 +128,7 @@ public class Main {
         System.out.println("Scenario 4 Evaluated.\n");
     }
 
-    /**
-     * @docs Scenario 5: New User with No Credit History
-     *       Limit $1,000 | Used $100 | 1 payment (on-time) | Age 0.1 years | 1 type
-     *       | 1 recent inquiry.
-     */
+    // Scenario 5 – New user: $1,000 limit, $100 used, 1 on-time payment, minimal history.
     private static void runScenarioFive(CreditScoreEngine engine) {
         System.out.println(">>> EXECUTING SCENARIO 5: New User with No Credit History");
         String ssn = "555-66-7777";

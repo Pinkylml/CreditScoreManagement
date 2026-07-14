@@ -3,20 +3,22 @@ package com.montran.creditscore.service.risk;
 import com.montran.creditscore.domain.model.RiskLevel;
 
 /**
- * @docs Utility class evaluating a numeric credit rating against operational business boundaries to resolve risk levels.
- * <p><b>Design Justification:</b> Encapsulates standard threshold classification patterns completely separate from data serialization or formula processing structures. This prevents branching logic pollution inside the calculation services.</p>
+ * Maps a numeric credit score to a {@link RiskLevel} using configurable thresholds.
+ * Thresholds come from {@link com.montran.creditscore.domain.model.ScoreConfiguration}.
  */
 public final class RiskClassifier {
 
-    /**
-     * @docs Private constructor to enforce static utility usage.
-     */
     private RiskClassifier() {
         throw new UnsupportedOperationException("Utility configuration class cannot be instantiated directly.");
     }
 
     /**
-     * @docs Classifies the calculated credit score into standard domain risk profiles using dynamic thresholds.
+     * Classifies a score into LOW, MEDIUM, or HIGH risk.
+     *
+     * @param score           The computed credit score (0–100).
+     * @param lowThreshold    Scores at or above this are LOW risk.
+     * @param mediumThreshold Scores at or above this (but below lowThreshold) are MEDIUM risk.
+     *                        Scores below this are HIGH risk.
      */
     public static RiskLevel classify(double score, double lowThreshold, double mediumThreshold) {
         if (score >= lowThreshold) {

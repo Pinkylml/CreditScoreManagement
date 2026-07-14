@@ -1,20 +1,17 @@
 package com.montran.creditscore.domain.model;
 
 /**
- * @docs Categorizes a borrower profile into specific operational risk tranches.
- * Automatically mapped from final computed credit score calculations.
+ * Classifies a user's credit risk based on their score.
+ * Automatically mapped by {@link com.montran.creditscore.service.risk.RiskClassifier}
+ * after each evaluation.
  */
-
 public enum RiskLevel {
-    /** @docs Derived from high scores (>=75); indicates optimal financial
-     * stability and minimal default probability. */
+    /** Score >= 75. Low default probability. */
     LOW,
 
-    /** @docs Derived from mid-range scores (50 <= score < 75); indicates
-     * moderate performance variation or history gaps. */
+    /** 50 <= score < 75. Some history gaps or moderate payment issues. */
     MEDIUM,
 
-    /** @docs Derived from low scores (<50) or persistent defaults;
-     * indicates critical default probability. */
+    /** Score < 50. High default probability. */
     HIGH
 }

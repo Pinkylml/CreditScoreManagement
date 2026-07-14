@@ -9,13 +9,9 @@ import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlType;
 
 /**
- * @docs Flattened Data Transfer Object representation of the User Aggregate
- *       Root optimized for serialization hierarchies.
- *       <p>
- *       <b>Design Justification:</b> Strips out thread-safe primitives,
- *       business rules, and encapsulation locks, exposing a pure mutable
- *       metadata structure matching flat JSON and XML schemas perfectly.
- *       </p>
+ * Flat, mutable representation of a {@link com.montran.creditscore.domain.model.User}
+ * used exclusively for serialization. Strips business rules so JAXB and Gson can
+ * read and write it freely via reflection.
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "User", propOrder = {

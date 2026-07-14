@@ -12,23 +12,17 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @docs Concrete adapter utilizing the Google Gson library to manage lightweight JSON document storage.
- */
+/** File-backed user store that reads and writes {@code users.json} using Gson. */
 public class JsonUserStore extends AbstractFileUserStore {
 
-    /** @docs File path target representing the primary JSON database location. */
     private static final String FILE_PATH = "users.json";
 
     /**
-     * @docs Thread-safe Gson instance initialized statically.
-     * This ensures it is available before the superclass constructor triggers readFromFile().
+     * Initialized statically to ensure it is ready before the superclass constructor
+     * triggers {@link #readFromFile()} during object creation.
      */
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    /**
-     * @docs Initializes the JSON persistence engine.
-     */
     public JsonUserStore() {
         super();
     }

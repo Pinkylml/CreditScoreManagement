@@ -16,40 +16,40 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.StampedLock;
 import java.util.stream.Collectors;
 
+/**
+ * Base class for file-backed user stores. Implements the Template Method pattern:
+ * this class owns caching, locking, and DTO mapping logic while subclasses
+ * handle the actual file format (XML, JSON, etc.) via {@link #readFromFile()} and
+ * {@link #writeToFile(List)}.
+ *
+ * <p>Thread safety is provided by a {@link StampedLock}. Reads first attempt an
+ * optimistic read; if a concurrent write is detected, they fall back to a full read lock.
+ * Writes always use an exclusive write lock and immediately flush the cache to disk.</p>
+ */
 public abstract class AbstractFileUserStore implements UserStore {
 
-    /** @docs Thread-safe internal memory cache mapping SSN to User Aggregates. */
+    // In-memory cache of all users, keyed by SSN.
     protected final ConcurrentMap<String, User> cache = new ConcurrentHashMap<>();
 
-    /**
-     * @docs High-performance locking mechanism for read-heavy, write-isolated
-     *       concurrency control.
-     */
     protected final StampedLock lock = new StampedLock();
 
-    /**
-     * @docs Standard ISO-8601 thread-local date parser (SimpleDateFormat is not
-     *       thread-safe, so we instantiate locally or synchronize usage).
-     */
+    // SimpleDateFormat is not thread-safe; a new instance is created per call.
     private static final String DATE_FORMAT = "yyyy-MM-dd";
 
-    /**
-     * @docs Base constructor that triggers the initial file loading sequence upon
-     *       instantiation.
-     */
+    /** Loads existing data from disk into the cache on startup. */
     protected AbstractFileUserStore() {
         loadStateIntoCache();
     }
 
     /**
-     * @docs Template method requiring subclass to execute physical file reads.
-     * @return List of parsed UserStorageDto elements from the physical file.
+     * Reads all user records from the underlying file.
+     * Called once at startup and whenever the cache needs to be rebuilt.
      */
     protected abstract List<UserStorageDto> readFromFile();
 
     /**
-     * @docs Template method requiring subclass to execute physical file writes.
-     * @param dtos The full system state translated into DTOs ready for writing.
+     * Writes the complete current state to the underlying file.
+     * Called on every save or delete to keep the file in sync.
      */
     protected abstract void writeToFile(List<UserStorageDto> dtos);
 
@@ -57,8 +57,7 @@ public abstract class AbstractFileUserStore implements UserStore {
     public Optional<User> findBySsn(String ssn) {
         long stamp = lock.tryOptimisticRead();
         User user = cache.get(ssn);
-        // If a write occurred during our optimistic read, fall back to a strict read
-        // lock.
+        // If a write occurred during our optimistic read, fall back to a strict read lock.
         if (!lock.validate(stamp)) {
             stamp = lock.readLock();
             try {
@@ -105,10 +104,7 @@ public abstract class AbstractFileUserStore implements UserStore {
         }
     }
 
-    /**
-     * @docs Translates the entire current cache state into flat DTOs
-     *       and delegates the disk write.
-     */
+    /** Serializes the entire cache to DTOs and delegates writing to the subclass. */
     private void flushCacheToFile() {
         List<UserStorageDto> dtos = cache.values().stream()
                 .map(this::mapToDto)
@@ -116,9 +112,7 @@ public abstract class AbstractFileUserStore implements UserStore {
         writeToFile(dtos);
     }
 
-    /**
-     * @docs Bootstraps the memory cache from the disk structure safely on startup.
-     */
+    /** Reads DTOs from disk and populates the cache. Runs under a write lock to prevent partial reads. */
     private void loadStateIntoCache() {
         long stamp = lock.writeLock();
         try {
@@ -135,9 +129,7 @@ public abstract class AbstractFileUserStore implements UserStore {
         }
     }
 
-    /**
-     * @docs Maps a pure Domain Aggregate to a structural DTO.
-     */
+    /** Converts a domain User into a flat DTO suitable for serialization. */
     private UserStorageDto mapToDto(User user) {
         UserStorageDto dto = new UserStorageDto();
         dto.setSsn(user.getSsn());
@@ -173,9 +165,7 @@ public abstract class AbstractFileUserStore implements UserStore {
         return dto;
     }
 
-    /**
-     * @docs Maps a structural DTO back into a pure Domain Aggregate.
-     */
+    /** Rebuilds a domain User from a deserialized DTO. Throws if a date string is malformed. */
     private User mapToDomain(UserStorageDto dto) {
         User user = new User(dto.getSsn(), dto.getName(), dto.getAddress(), dto.getEmail(), dto.getTotalCreditLimit());
         user.setCreditScore(dto.getCreditScore());

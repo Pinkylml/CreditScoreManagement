@@ -1,15 +1,11 @@
 package com.montran.creditscore.domain.model;
 
 /**
- * @docs Indicates the resolution state of a completed or ongoing credit contract milestone.
- * Used directly by core formulas to penalize scores or evaluate reliability.
+ * Indicates whether a transaction obligation has been met or failed.
+ * The scoring formula treats DEFAULTED records as missed payments, skipping
+ * them in the on-time payment count.
  */
-
 public enum TransactionStatus {
-    /** @docs The obligation was successfully fulfilled on time or within terms. */
     PAID,
-
-    /** @docs The borrower failed to meet the repayment terms, incurring a critical
-     *  negative score penalty. */
     DEFAULTED
 }

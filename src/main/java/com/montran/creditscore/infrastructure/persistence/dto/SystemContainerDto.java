@@ -9,26 +9,20 @@ import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlRootElement;
 
 /**
- * @docs Root document object framework container acting as the physical entry file
- * translation boundary.
- * <p><b>Design Justification:</b> Maps directly to the root XML element or top-level
- * JSON wrapper array structure, maintaining full structural isolation for our data
- * collections on disk.</p>
+ * Top-level wrapper DTO that maps to the XML root element ({@code <creditSystem>})
+ * and the Gson top-level object. Holds the full list of user records for serialization.
  */
 @XmlRootElement(name = "creditSystem")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class SystemContainerDto {
-    /** @docs Centralized user collection storage block matching
-     * data allocations on disk. */
+
     @XmlElementWrapper(name = "users")
     @XmlElement(name = "user")
     private List<UserStorageDto> users = new ArrayList<>();
 
-
     public SystemContainerDto() {
     }
 
-    //getters and setters
     public List<UserStorageDto> getUsers() {
         return users;
     }

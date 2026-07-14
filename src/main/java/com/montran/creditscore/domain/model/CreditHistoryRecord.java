@@ -5,43 +5,32 @@ import java.util.UUID;
 import com.montran.creditscore.domain.exception.InvalidCreditDataException;
 
 /**
- * @docs A Domain Value Object representing an immutable financial transaction
- *       entry.
+ * Immutable value object representing a single credit transaction in a user's history.
+ * Dates are defensively copied on construction and retrieval to guard against external mutations.
  */
 public final class CreditHistoryRecord {
 
-    /** @docs The unique identifier for this specific transaction record. */
     private final String transactionId;
-
-    /** @docs The contractual date the payment was originally due. */
     private final Date dueDate;
 
-    /**
-     * @docs The actual date the payment was settled. Can be null if the transaction
-     *       is defaulted or pending.
-     */
+    /** Null if the transaction is still pending or has defaulted. */
     private final Date settlementDate;
 
-    /** @docs The structural financial category of this financial record. */
     private final TransactionType transactionType;
-
-    /** @docs The total monetary balance or limit allocated to this transaction. */
     private final double amount;
-
-    /**
-     * @docs The current repayment or operational status of this history element.
-     */
     private final TransactionStatus status;
 
     /**
-     * @docs Constructs a validated, unmodifiable historical transaction record.
-     * @param transactionId   The unique ID. If null, a new UUID is automatically
-     *                        generated.
-     * @param dueDate         The contractual due date; cannot be null.
-     * @param settlementDate  The actual settlement date; can be null if unpaid.
-     * @param transactionType The financial mechanism category; cannot be null.
-     * @param amount          The monetary sum involved; must be non-negative.
-     * @param status          The settlement status; cannot be null.
+     * Creates a validated, immutable transaction record.
+     *
+     * @param transactionId   Unique ID for this record. A UUID is generated automatically if null or blank.
+     * @param dueDate         The date the payment was due. Cannot be null.
+     * @param settlementDate  The date the payment was made. Null for pending or defaulted payments.
+     * @param transactionType The type of credit instrument. Cannot be null.
+     * @param amount          The monetary amount involved. Must be non-negative.
+     * @param status          The payment status. Cannot be null.
+     * @throws IllegalArgumentException   if dueDate, transactionType, or status is null.
+     * @throws InvalidCreditDataException if amount is negative.
      */
     public CreditHistoryRecord(String transactionId, Date dueDate, Date settlementDate, TransactionType transactionType,
             double amount, TransactionStatus status) {

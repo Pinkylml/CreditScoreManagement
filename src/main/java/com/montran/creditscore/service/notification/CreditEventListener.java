@@ -3,22 +3,16 @@ package com.montran.creditscore.service.notification;
 import com.montran.creditscore.domain.model.User;
 
 /**
- * @docs Observer interface defining the contract for credit event listeners.
- *       <p>
- *       <b>Design Justification:</b> Enforces the Observer Pattern. This allows
- *       multiple distinct notification channels to be plugged into the system
- *       dynamically without tightly coupling the delivery mechanism to the
- *       publisher.
- *       </p>
+ * Observer contract for receiving credit profile change events.
+ * Implement this interface to plug in a new notification channel.
  */
 public interface CreditEventListener {
 
     /**
-     * @docs Handles the dispatched event asynchronously when a significant user
-     *       profile change occurs.
-     * @param user    The domain aggregate root whose profile triggered the
-     *                notification.
-     * @param message The alert message detailing the risk or score modification.
+     * Called when a significant change occurs in a user's credit profile.
+     *
+     * @param user    The user whose profile changed.
+     * @param message A description of what changed (score delta or risk shift).
      */
     void onCreditEvent(User user, String message);
 }

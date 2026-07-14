@@ -2,10 +2,7 @@ package com.montran.creditscore.service.notification;
 
 import com.montran.creditscore.domain.model.User;
 
-/**
- * @docs Concrete observer implementation simulating a network-based email
- *       delivery gateway.
- */
+/** Simulates email delivery for credit event notifications. */
 public class EmailNotificationListener implements CreditEventListener {
 
     @Override

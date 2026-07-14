@@ -6,66 +6,31 @@ import java.util.List;
 import com.montran.creditscore.domain.exception.InvalidCreditDataException;
 
 /**
- * @docs Domain Aggregate Root representing a distinct client entity within the
- *       system.
- *       <p>
- *       This object encapsulates identity details, running evaluation metrics,
- *       and the collection
- *       of associated credit events. State transitions are strictly governed
- *       via internal mutators
- *       to ensure business invariance.
- *       </p>
+ * Aggregate root for a credit system customer.
+ * Holds the user's identity info, current credit score, risk level, and full transaction history.
+ * Business rules (blank SSN, non-positive limit) are enforced at construction time.
  */
 public class User {
 
-    /**
-     * @docs The unique Social Security Number acts as the primary logical business
-     *       key.
-     */
     private final String ssn;
-
-    /** @docs The legal registered name of the user entity. */
     private String name;
-
-    /** @docs The current physical mailing address context. */
     private String address;
-
-    /** @docs The dynamically calculated rating metric bounded between 0 and 100. */
     private double creditScore;
-
-    /**
-     * @docs The resolved categorization bracket indicating portfolio default
-     *       vulnerability.
-     */
     private RiskLevel riskLevel;
-
-    /**
-     * @docs The private list containing all chronological financial history logs.
-     */
     private final List<CreditHistoryRecord> creditHistory;
-
-    /**
-     * @docs The personal maximum credit limit assigned to this specific user
-     *       profile.
-     */
     private double totalCreditLimit;
-
-    /**
-     * @docs The primary electronic mailing address associated with the user
-     *       profile.
-     */
     private String email;
 
     /**
-     * @docs Initializes a fresh User instance with empty histories and baseline
-     *       risk assignments.
-     * @param ssn              The unique identity token; must be non-empty and
-     *                         non-null.
-     * @param name             The individual's legal descriptive identity label.
-     * @param address          The primary residency location info.
-     * @param email            The email domain
-     * @param totalCreditLimit the limit of the credits for the user
-     * @throws IllegalArgumentException if the provided SSN is null or blank.
+     * Creates a new user with a blank credit history and an initial risk level of HIGH.
+     *
+     * @param ssn              Unique identifier for the user. Cannot be null or blank.
+     * @param name             Full name.
+     * @param address          Mailing address.
+     * @param email            Contact email.
+     * @param totalCreditLimit The total credit limit assigned. Must be greater than zero.
+     * @throws IllegalArgumentException   if the SSN is null or blank.
+     * @throws InvalidCreditDataException if the credit limit is zero or negative.
      */
     public User(String ssn, String name, String address, String email, double totalCreditLimit) {
         if (ssn == null || ssn.trim().isEmpty()) {
@@ -109,6 +74,7 @@ public class User {
         return riskLevel;
     }
 
+    /** Returns an unmodifiable view of the credit history to prevent external mutations. */
     public List<CreditHistoryRecord> getCreditHistory() {
         return Collections.unmodifiableList(this.creditHistory);
     }
@@ -143,10 +109,10 @@ public class User {
     }
 
     /**
-     * @docs Appends a validated transactional record directly to the structural
-     *       timeline sequence.
-     * @param record The non-null transaction value object to store.
-     * @throws IllegalArgumentException if the provided record reference is null.
+     * Adds a new transaction to the user's credit history.
+     *
+     * @param record The transaction to add. Cannot be null.
+     * @throws IllegalArgumentException if record is null.
      */
     public void addCreditRecord(CreditHistoryRecord record) {
         if (record == null) {
@@ -155,19 +121,18 @@ public class User {
         this.creditHistory.add(record);
     }
 
-    /**
-     * @docs Purges all historical record items stored inside the internal array
-     *       list.
-     */
+    /** Clears all transactions from the user's credit history. */
     public void clearCreditHistory() {
         this.creditHistory.clear();
     }
 
     /**
-     * @docs Updates the core identifying information of the user profile.
-     * @param name    The updated name.
-     * @param address The updated address.
-     * @param email   The updated email.
+     * Updates the user's name, address, and email. Silently ignores null or blank values
+     * so callers can do partial updates without overwriting existing data.
+     *
+     * @param name    Updated name (ignored if blank).
+     * @param address Updated address (ignored if blank).
+     * @param email   Updated email (ignored if blank).
      */
     public void updateProfile(String name, String address, String email) {
         if (name != null && !name.trim().isEmpty())
@@ -179,19 +144,21 @@ public class User {
     }
 
     /**
-     * @docs Removes a specific credit history record by its unique identifier.
+     * Removes a transaction from credit history by its ID.
+     *
      * @param transactionId The ID of the record to remove.
-     * @return true if a record was removed, false otherwise.
+     * @return {@code true} if a record was found and removed, {@code false} otherwise.
      */
     public boolean removeCreditRecord(String transactionId) {
         return this.creditHistory.removeIf(record -> record.getTransactionId().equals(transactionId));
     }
 
     /**
-     * @docs Replaces an existing credit history record with an updated version.
-     * @param transactionId The ID of the record to update.
+     * Replaces a transaction in credit history with updated data.
+     *
+     * @param transactionId The ID of the record to replace.
      * @param updatedRecord The new record data.
-     * @return true if the record was successfully replaced, false otherwise.
+     * @return {@code true} if the record was found and replaced, {@code false} otherwise.
      */
     public boolean updateCreditRecord(String transactionId, CreditHistoryRecord updatedRecord) {
         for (int i = 0; i < this.creditHistory.size(); i++) {

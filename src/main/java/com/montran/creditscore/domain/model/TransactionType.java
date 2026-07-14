@@ -1,8 +1,6 @@
 package com.montran.creditscore.domain.model;
 
-/**
- * @docs Enumerates the supported credit instruments and financial contract categories evaluated within the credit score lifecycle.
- */
+/** Supported credit instrument categories used in diversity scoring. */
 public enum TransactionType {
     CREDIT_CARD,
     MORTGAGE,

@@ -15,14 +15,9 @@ import com.montran.creditscore.domain.exception.UserNotFoundException;
 import java.util.Optional;
 
 /**
- * @docs Primary orchestration service acting as the central use case
- *       interactor.
- *       <p>
- *       <b>Architecture:</b> Implements the Facade Pattern to provide a unified
- *       interface over the subsystems of calculation, risk classification,
- *       persistence, and event broadcasting. This keeps the client application
- *       decoupled from the underlying domain complexity.
- *       </p>
+ * Facade that exposes all credit management use cases to the outside world.
+ * Coordinates user registration, transaction recording, score evaluation,
+ * risk classification, persistence, and event notifications.
  */
 public class CreditScoreEngine {
 
@@ -31,11 +26,12 @@ public class CreditScoreEngine {
     private final ScoreFormula scoreFormula;
 
     /**
-     * @docs Constructs the engine with required outbound ports and assigns the
-     *       default mathematical strategy.
-     * @param userStore          The persistence port for managing aggregate states.
-     * @param notificationSender The messaging port for broadcasting critical
-     *                           business events.
+     * Builds the engine with the required persistence and notification ports.
+     * Defaults to {@link WeightedScoreFormula} for score calculation.
+     *
+     * @param userStore          Where users are stored and retrieved.
+     * @param notificationSender How credit alerts are delivered.
+     * @throws IllegalArgumentException if either port is null.
      */
     public CreditScoreEngine(UserStore userStore, NotificationSender notificationSender) {
         if (userStore == null || notificationSender == null) {
@@ -47,9 +43,10 @@ public class CreditScoreEngine {
     }
 
     /**
-     * @docs Registers a new client profile into the system boundary.
-     * @param user The constructed aggregate root to persist.
-     * @throws IllegalArgumentException if a user with the same SSN already exists.
+     * Registers a new user. Fails if a user with the same SSN already exists.
+     *
+     * @param user The user to register. Cannot be null.
+     * @throws IllegalArgumentException if user is null or the SSN is already taken.
      */
     public void registerUser(User user) {
         if (user == null) {
@@ -65,11 +62,12 @@ public class CreditScoreEngine {
     }
 
     /**
-     * @docs Appends a new financial transaction to a specific user's history
-     *       ledger.
-     * @param ssn    The unique identifier of the target user.
-     * @param record The immutable transaction record to append.
-     * @throws IllegalArgumentException if the requested user is not found.
+     * Adds a transaction to a user's credit history and persists the change.
+     *
+     * @param ssn    The user's SSN.
+     * @param record The transaction to add. Cannot be null.
+     * @throws UserNotFoundException     if the user is not found.
+     * @throws IllegalArgumentException  if record is null.
      */
     public void addTransaction(String ssn, CreditHistoryRecord record) {
         if (record == null) {
@@ -84,35 +82,30 @@ public class CreditScoreEngine {
     }
 
     /**
-     * @docs Executes the comprehensive credit rating evaluation, classifies the
-     *       resulting risk, updates persistence, and triggers notifications if
-     *       critical thresholds are crossed.
-     * @param ssn The unique identifier of the target user to evaluate.
-     * @throws IllegalArgumentException if the requested user is not found.
+     * Runs a full credit evaluation for a user: calculates the score, assigns a risk level,
+     * saves the result, and fires a notification if the risk level changed or the score
+     * shifted by 10+ points.
+     *
+     * @param ssn The user's SSN.
+     * @throws UserNotFoundException if the user is not found.
      */
     public void evaluateProfile(String ssn) {
         User user = userStore.findBySsn(ssn)
                 .orElseThrow(() -> new UserNotFoundException(ssn));
 
-        // Capture previous state to evaluate operational deltas
         double previousScore = user.getCreditScore();
         RiskLevel previousRisk = user.getRiskLevel();
 
-        // Load dynamic environmental weights
         ScoreConfiguration config = PropertyWeightLoader.loadWeights();
 
-        // Execute mathematical scoring strategy
         double newScore = scoreFormula.calculate(user, config);
         user.setCreditScore(newScore);
 
-        // Classify operational risk bounds
         RiskLevel newRisk = RiskClassifier.classify(newScore, config.getRiskThresholdLow(), config.getRiskThresholdMedium());
         user.setRiskLevel(newRisk);
 
-        // Commit updated state to physical storage
         userStore.save(user);
 
-        // Evaluate state deltas for notification dispatch
         if (previousRisk != newRisk) {
             String alert = String.format(
                     "Your credit risk level has shifted from %s to %s. Your new operational score is %.2f.",
@@ -127,8 +120,10 @@ public class CreditScoreEngine {
     }
 
     /**
-     * @docs Removes a user profile completely from the persistence registry.
-     * @param ssn The unique identifier of the target user.
+     * Permanently removes a user from the store.
+     *
+     * @param ssn The user's SSN.
+     * @throws IllegalArgumentException if the user is not found.
      */
     public void deleteUser(String ssn) {
         boolean deleted = userStore.deleteBySsn(ssn);
@@ -138,11 +133,13 @@ public class CreditScoreEngine {
     }
 
     /**
-     * @docs Updates the basic profile information for an existing user.
-     * @param ssn        The unique identifier of the user to edit.
-     * @param newName    The updated name.
-     * @param newAddress The updated address.
-     * @param newEmail   The updated email.
+     * Updates a user's name, address, and email. Null or blank values are ignored.
+     *
+     * @param ssn        The user's SSN.
+     * @param newName    Updated name.
+     * @param newAddress Updated address.
+     * @param newEmail   Updated email.
+     * @throws UserNotFoundException if the user is not found.
      */
     public void editUser(String ssn, String newName, String newAddress, String newEmail) {
         User user = userStore.findBySsn(ssn)
@@ -152,9 +149,11 @@ public class CreditScoreEngine {
     }
 
     /**
-     * @docs Removes a specific transaction from a user's credit history.
-     * @param ssn           The unique identifier of the user.
-     * @param transactionId The ID of the transaction to delete.
+     * Removes a specific transaction from a user's credit history.
+     *
+     * @param ssn           The user's SSN.
+     * @param transactionId The ID of the transaction to remove.
+     * @throws UserNotFoundException if the user is not found.
      */
     public void deleteTransaction(String ssn, String transactionId) {
         User user = userStore.findBySsn(ssn)
@@ -166,11 +165,12 @@ public class CreditScoreEngine {
     }
 
     /**
-     * @docs Replaces an existing transaction in a user's credit history with new
-     *       data.
-     * @param ssn           The unique identifier of the user.
-     * @param transactionId The ID of the transaction to update.
-     * @param updatedRecord The new transaction record data.
+     * Replaces a specific transaction in a user's credit history with updated data.
+     *
+     * @param ssn           The user's SSN.
+     * @param transactionId The ID of the transaction to replace.
+     * @param updatedRecord The new transaction data.
+     * @throws UserNotFoundException if the user is not found.
      */
     public void editTransaction(String ssn, String transactionId, CreditHistoryRecord updatedRecord) {
         User user = userStore.findBySsn(ssn)

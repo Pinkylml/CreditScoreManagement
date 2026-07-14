@@ -9,14 +9,9 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * @docs Concrete formula strategy executing the standardized scoring
- *       algorithms.
- *       <p>
- *       <b>Design Justification:</b> Encapsulates the specific mathematical
- *       logic required to evaluate a user's credit profile based on
- *       utilization, payment history, credit age, diversity, and recent
- *       inquiries.
- *       </p>
+ * Calculates a credit score using five weighted factors:
+ * utilization, payment history, credit age, credit type diversity, and recent inquiries.
+ * The final score is clamped to [0.0, 100.0].
  */
 public class WeightedScoreFormula implements ScoreFormula {
 
@@ -50,24 +45,19 @@ public class WeightedScoreFormula implements ScoreFormula {
     }
 
     /**
-     * @docs Calculates the utilization ratio points by comparing the total used
-     *       credit against the user's specific total credit limit.
-     * @param user      The aggregate root containing the total personal credit
-     *                  limit.
-     * @param history   The immutable list of user transaction records.
-     * @param maxWeight The configurable maximum points allowed for this category.
-     * @return Calculated double representing points awarded for credit utilization.
+     * Computes utilization points: {@code (totalUsed / totalLimit) * maxWeight}, capped at maxWeight.
+     * If the user has zero usage, returns 20% of the max as a baseline.
      */
     private double computeUtilizationPoints(User user, List<CreditHistoryRecord> history, int maxWeight) {
         double totalLimit = user.getTotalCreditLimit();
         double totalUsed = 0.0;
 
         for (CreditHistoryRecord record : history) {
-            totalUsed += record.getAmount(); // Sum all utilized credit amounts, regardless of status
+            totalUsed += record.getAmount();
         }
 
         if (totalUsed == 0.0) {
-            return maxWeight * 0.2; // Baseline assignment for zero utilization
+            return maxWeight * 0.2; // baseline for zero utilization
         }
 
         double ratio = totalUsed / totalLimit;
@@ -75,13 +65,9 @@ public class WeightedScoreFormula implements ScoreFormula {
     }
 
     /**
-     * @docs Evaluates payment reliability by comparing settlement dates against
-     *       contractual due dates, factoring in the allowable system grace period.
-     * @param history   The immutable list of user transaction records.
-     * @param maxWeight The configurable maximum points allowed for this category.
-     * @param graceDays The operational grace period in days before a payment is
-     *                  officially penalized as late.
-     * @return Calculated double representing points awarded for payment history.
+     * Computes payment history points: {@code (onTimePayments / totalPayments) * maxWeight}.
+     * A payment is "on time" if it was settled within the configured grace period after the due date.
+     * DEFAULTED records always count as missed payments.
      */
     private double computePaymentHistoryPoints(List<CreditHistoryRecord> history, int maxWeight, int graceDays) {
         if (history.isEmpty())
@@ -92,7 +78,7 @@ public class WeightedScoreFormula implements ScoreFormula {
 
         for (CreditHistoryRecord record : history) {
             if (record.isDefaulted()) {
-                continue; // Defaulted status is automatically penalized as a missed payment
+                continue;
             }
 
             if (record.getSettlementDate() != null && record.getDueDate() != null) {
@@ -109,12 +95,8 @@ public class WeightedScoreFormula implements ScoreFormula {
     }
 
     /**
-     * @docs Calculates the average lifespan of all recorded credit instances using
-     *       their original due dates as the baseline for the timeline calculation.
-     * @param history   The immutable list of user transaction records.
-     * @param maxWeight The configurable maximum points allowed for this category.
-     * @return Calculated double representing points awarded for the length of
-     *         credit history.
+     * Computes credit age points: {@code (averageAgeInYears / 10) * maxWeight}, capped at maxWeight.
+     * Age is measured from each record's due date to today.
      */
     private double computeCreditAgePoints(List<CreditHistoryRecord> history, int maxWeight) {
         if (history.isEmpty())
@@ -135,11 +117,7 @@ public class WeightedScoreFormula implements ScoreFormula {
     }
 
     /**
-     * @docs Assesses portfolio diversification by counting the number of unique
-     *       financial transaction types present in the user's history.
-     * @param history   The immutable list of user transaction records.
-     * @param maxWeight The configurable maximum points allowed for this category.
-     * @return Calculated double representing points awarded for credit variance.
+     * Computes credit diversity points: {@code uniqueTypes * 2.0}, capped at maxWeight.
      */
     private double computeCreditTypesPoints(List<CreditHistoryRecord> history, int maxWeight) {
         long uniqueTypesCount = history.stream()
@@ -152,13 +130,8 @@ public class WeightedScoreFormula implements ScoreFormula {
     }
 
     /**
-     * @docs Calculates the negative penalty metric for recent credit inquiries
-     *       spanning the last 24 months, utilizing the contractual due date.
-     * @param history    The immutable list of user transaction records.
-     * @param maxPenalty The configurable maximum penalty constraint (absolute
-     *                   value) allowed.
-     * @return Calculated double representing negative points to be subtracted from
-     *         the total score.
+     * Computes the recent-inquiry penalty: {@code recentCount * -2.0}, floored at {@code -maxPenalty}.
+     * Only transactions with a due date in the last 24 months are counted.
      */
     private double computeInquiryPoints(List<CreditHistoryRecord> history, int maxPenalty) {
         Calendar cal = Calendar.getInstance();
