@@ -1,63 +1,55 @@
 # Credit Score Management System
 
-A robust, enterprise-grade **Credit Score Management System** built using **Hexagonal Architecture (Ports & Adapters)** and pure **Java 8**. The system evaluates client credit profiles, tracks transactional histories, calculates credit ratings dynamically based on external settings, and broadcasts async events on significant shifts.
+## Project Overview
+The Credit Score Management System is a robust Java-based application designed to evaluate and manage user credit profiles accurately and securely. It features a highly thread-safe architecture with atomic operations using per-user locks and a pluggable persistence layer supporting atomic cross-platform file writes.
 
----
+## Tech Stack
+*   **Java Version:** 1.8 (Java 8)
+*   **Build Tool:** Gradle
+*   **Dependencies:** Gson (2.10.1) for JSON processing, JAXB (built-in Java 8) for XML processing.
 
-## 1. Architectural Highlights
+## Quick Start (Build & Run)
 
-* **Hexagonal Architecture (Ports & Adapters)**: Strict inward-pointing dependencies. Core domain logic has zero dependencies on external libraries (like JAXB/Gson), databases, or network protocols.
-* **Optimistic Reader-Writer Locks (`StampedLock`)**: Enforces concurrency safety across transactional collections. Optimistic reads are checked for validation, falling back to strict read locks only when a write interference is detected, maximizing thread throughput.
-* **Strategy Pattern**: Score formulas are encapsulated into interchangeable algorithms ([ScoreFormula](docs/03_domain_model.md#class-scoreformula)), allowing administrators to plug in new evaluation scoring systems dynamically.
-* **Observer Pattern**: Broadcasts score and risk classification adjustments asynchronously using `CompletableFuture.runAsync()` to decoupled subscribers ([CreditEventListener](docs/02_design_patterns/behavioral_patterns.md#9-behavioral-pattern-observer-event-notification-diagram)).
-* **Template Method Pattern**: The base file store ([AbstractFileUserStore](docs/02_design_patterns/creational_patterns.md#4-creational-pattern-registry-factory-diagram)) implements memory-caching, transaction locks, and mapping flows, leaving formatting serialization (JAXB XML or Gson JSON) to concrete adapters.
-
----
-
-## 2. Dynamic Configurations
-
-All math weights, storage mechanisms, and risk limits are externalized within **[credit-settings.properties](src/main/resources/credit-settings.properties)**:
-
-| Key | Type | Default | Purpose |
-|---|---|---|---|
-| `storage.type` | String | `JSON` | Active database format adapter (`JSON` or `XML`). |
-| `weight.credit.utilization` | Integer | `30` | Max point allocation for utilization ratio. |
-| `weight.payment.history` | Integer | `35` | Max point allocation for timely payments. |
-| `weight.credit.age` | Integer | `15` | Max point allocation for account age. |
-| `weight.credit.types` | Integer | `10` | Max point allocation for category diversity. |
-| `weight.recent.inquiries` | Integer | `10` | Max point allocation penalty for recent inquiries. |
-| `late.payment.grace.days` | Integer | `30` | Grace period in days before a payment is penalized. |
-| `risk.threshold.low` | Double | `75.0` | Credit score threshold above which risk is LOW. |
-| `risk.threshold.medium` | Double | `50.0` | Credit score threshold below which risk is HIGH. |
-
----
-
-## 3. Documentation Roadmap
-
-* **[01. System Architecture Overview](docs/01_architecture_overview.md)**: Deep-dive into Ports & Adapters layers, stack, and data flows.
-* **[02. Creational Design Patterns](docs/02_design_patterns/creational_patterns.md)**: Explains Registry Factory persistence and dynamic instantiation.
-* **[03. Structural Design Patterns](docs/02_design_patterns/structural_patterns.md)**: Details Adapter wrappers, DTO mapping boundaries, and Facade orchestrators.
-* **[04. Behavioral Design Patterns](docs/02_design_patterns/behavioral_patterns.md)**: Covers Template Method, Strategy, and Observer notifier loops.
-* **[05. Domain Model & Boundaries](docs/03_domain_model.md)**: Outlines Aggregate Roots, Value Objects, and Thread-Safety locks.
-* **[06. Infrastructure Dependencies](docs/04_infrastructure_deps.md)**: Details settings file variables, caching, and DTO marshallers.
-* **[07. Codebase Class Reference Guide](docs/05_class_reference.md)**: Class-by-class declaration, definitions, and roles guide.
-
----
-
-## 4. Getting Started
-
-### Prerequisites
-* **Java Development Kit (JDK) 8** or higher.
-* **Gradle** (executable wrapper `./gradlew` is included).
-
-### Compile and Verify Test Suite
-Execute the integration and serialization tests:
-```bash
-./gradlew test
+**Clean and Build the Project:**
+```powershell
+.\gradlew.bat clean build
 ```
 
-### Run Demonstration Scenarios
-Boot the core application to execute the five evaluation scenarios and CRUD transaction showcase:
-```bash
-./gradlew run
+**Run the Test Suite:**
+```powershell
+.\gradlew.bat test
 ```
+
+**Execute the Application Demo:**
+```powershell
+.\gradlew.bat run
+```
+
+## Configuration (`credit-settings.properties`)
+The system behavior is defined in `src/main/resources/credit-settings.properties`.
+
+### Persistence Configuration
+The application supports pluggable storage engines. To switch between XML and JSON persistence, modify the following property:
+```properties
+# Defines the active persistence mechanism. Valid options: XML, JSON
+storage.type=XML
+```
+
+### Score Factor Weights
+The scoring formula is highly configurable. The sum of the following factor weights must equal exactly `100`:
+```properties
+weight.credit.utilization=30
+weight.payment.history=35
+weight.credit.age=15
+weight.credit.types=10
+weight.recent.inquiries=10
+```
+
+*Risk thresholds can also be configured using `risk.threshold.low` and `risk.threshold.medium`.*
+
+## Demo Execution Summary
+Running `Main.java` executes a comprehensive end-to-end demonstration proving system correctness:
+1.  **5 Distinct Scoring Scenarios:** Evaluates predefined user profiles ranging from excellent credit histories to new users with no history, validating the weighted formula.
+2.  **Atomic Transaction Editing:** Demonstrates adding a transaction and subsequently updating its amount, proving that the user's credit score is automatically and safely re-evaluated.
+3.  **Safe Multi-Threaded Concurrency:** Spawns multiple concurrent threads that simultaneously add transactions to the same user. This proves that the per-user `ReentrantLock` mechanism completely prevents race conditions and data loss during concurrent writes.
+4.  **Periodic Batch Recalculation:** Demonstrates the `PeriodicScoreUpdater` daemon running in the background to safely evaluate and flush all user profiles on a scheduled interval.
