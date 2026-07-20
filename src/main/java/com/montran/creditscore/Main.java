@@ -56,7 +56,8 @@ public class Main {
             TransactionType type = (i % 3 == 0) ? TransactionType.CREDIT_CARD
                     : (i % 3 == 1) ? TransactionType.MORTGAGE : TransactionType.AUTO_LOAN;
 
-            engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 5, type));
+            // daysLate=0: settled exactly on the due date → on time
+            engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 0, type));
         }
 
         engine.evaluateProfile(ssn);
@@ -72,7 +73,8 @@ public class Main {
 
         for (int i = 0; i < 15; i++) {
             int yearsAgo = 8;
-            int daysLate = (i < 2) ? 45 : 10;
+            // First 2 payments are late (settled 45 days after due), remaining 13 are on time (daysLate=0)
+            int daysLate = (i < 2) ? 45 : 0;
             double amount = 8000.0 / 15;
             TransactionType type = TransactionType.values()[i % 4];
 
@@ -95,7 +97,8 @@ public class Main {
             if (i < 3)
                 daysAgo = 365;
 
-            int daysLate = (i == 0) ? 60 : 5;
+            // First payment is late (60 days after due); remaining 9 are on time (daysLate=0)
+            int daysLate = (i == 0) ? 60 : 0;
             double amount = 4500.0 / 10;
             TransactionType type = (i % 2 == 0) ? TransactionType.CREDIT_CARD : TransactionType.AUTO_LOAN;
 
@@ -118,7 +121,8 @@ public class Main {
             if (i < 5)
                 daysAgo = 180;
 
-            int daysLate = (i < 6) ? 90 : 5;
+            // First 6 payments are late (90 days after due); last 6 are on time (daysLate=0)
+            int daysLate = (i < 6) ? 90 : 0;
             double amount = 12000.0 / 12;
 
             engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, TransactionType.CREDIT_CARD));
@@ -135,7 +139,8 @@ public class Main {
         User user = new User(ssn, "David Chen", "Tokyo, Japan", "david@example.com", 1000.0);
         engine.registerUser(user);
 
-        engine.addTransaction(ssn, createRecord(100.0, 36, 2, TransactionType.CREDIT_CARD));
+        // daysLate=0: settled exactly on the due date → on time
+        engine.addTransaction(ssn, createRecord(100.0, 36, 0, TransactionType.CREDIT_CARD));
 
         engine.evaluateProfile(ssn);
         System.out.println("Scenario 5 Evaluated.\n");

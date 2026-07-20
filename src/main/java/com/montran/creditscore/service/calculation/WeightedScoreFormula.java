@@ -28,8 +28,7 @@ public class WeightedScoreFormula implements ScoreFormula {
         }
 
         double utilizationPoints = computeUtilizationPoints(user, history, config.getUtilizationWeight());
-        double paymentPoints = computePaymentHistoryPoints(history, config.getPaymentHistoryWeight(),
-                config.getLatePaymentGraceDays());
+        double paymentPoints = computePaymentHistoryPoints(history, config.getPaymentHistoryWeight());
         double agePoints = computeCreditAgePoints(history, config.getCreditAgeWeight());
         double typesPoints = computeCreditTypesPoints(history, config.getCreditTypesWeight());
         double inquiryPoints = computeInquiryPoints(history, config.getRecentInquiriesWeight());
@@ -66,10 +65,10 @@ public class WeightedScoreFormula implements ScoreFormula {
 
     /**
      * Computes payment history points: {@code (onTimePayments / totalPayments) * maxWeight}.
-     * A payment is "on time" if it was settled within the configured grace period after the due date.
-     * DEFAULTED records always count as missed payments.
+     * A payment is on time only if the settlement date is on or before the due date.
+     * DEFAULTED records and records with no settlement date always count as missed payments.
      */
-    private double computePaymentHistoryPoints(List<CreditHistoryRecord> history, int maxWeight, int graceDays) {
+    private double computePaymentHistoryPoints(List<CreditHistoryRecord> history, int maxWeight) {
         if (history.isEmpty())
             return 0.0;
 
@@ -82,10 +81,8 @@ public class WeightedScoreFormula implements ScoreFormula {
             }
 
             if (record.getSettlementDate() != null && record.getDueDate() != null) {
-                long diffInMillis = record.getSettlementDate().getTime() - record.getDueDate().getTime();
-                long daysLate = diffInMillis / (1000 * 60 * 60 * 24);
-
-                if (daysLate <= graceDays) {
+                // Strictly on time: settled on or before the due date
+                if (!record.getSettlementDate().after(record.getDueDate())) {
                     onTimePayments++;
                 }
             }

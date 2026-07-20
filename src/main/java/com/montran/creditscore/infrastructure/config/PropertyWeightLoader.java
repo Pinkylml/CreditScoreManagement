@@ -19,8 +19,8 @@ public class PropertyWeightLoader {
     }
 
     /**
-     * Loads scoring weights, grace period, and risk thresholds from the properties file.
-     * Falls back to specification defaults if the file is missing or a value cannot be parsed.
+     * Loads scoring weights and risk thresholds from the properties file.
+     * Falls back to hardcoded defaults if the file is missing or a value cannot be parsed.
      *
      * @return A fully populated {@link ScoreConfiguration}.
      */
@@ -42,11 +42,10 @@ public class PropertyWeightLoader {
         int creditAge = parseProperty(props, "weight.credit.age", 15);
         int creditTypes = parseProperty(props, "weight.credit.types", 10);
         int recentInquiries = parseProperty(props, "weight.recent.inquiries", 10);
-        int graceDays = parseProperty(props, "late.payment.grace.days", 30);
         double lowRisk = parseDoubleProperty(props, "risk.threshold.low", 75.0);
         double mediumRisk = parseDoubleProperty(props, "risk.threshold.medium", 50.0);
 
-        return new ScoreConfiguration(utilization, paymentHistory, creditAge, creditTypes, recentInquiries, graceDays, lowRisk, mediumRisk);
+        return new ScoreConfiguration(utilization, paymentHistory, creditAge, creditTypes, recentInquiries, lowRisk, mediumRisk);
     }
 
     private static double parseDoubleProperty(Properties props, String key, double defaultValue) {
