@@ -310,4 +310,47 @@ public class CreditScoreEngine {
             lock.unlock();
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Batch / scheduled operations
+    // -----------------------------------------------------------------------
+
+    /**
+     * Re-evaluates the credit score and risk level for <em>every</em> user in the store.
+     * Intended to be called on a periodic schedule (e.g., by {@link PeriodicScoreUpdater}).
+     *
+     * <h4>Concurrency guarantee</h4>
+     * <ol>
+     *   <li>A snapshot of all SSNs is collected first (each element is already a defensive
+     *       copy so it is safe to iterate outside any lock).</li>
+     *   <li>For each SSN the per-user {@link ReentrantLock} is acquired.</li>
+     *   <li>Inside the {@code try/finally} the user is <em>re-fetched</em> from the store to
+     *       guarantee we operate on the freshest state (another thread may have mutated the
+     *       user between the snapshot and the lock acquisition).</li>
+     *   <li>Users deleted between the snapshot and lock acquisition are silently skipped.</li>
+     * </ol>
+     */
+    public void recalculateAllUsers() {
+        // Take a snapshot of all current SSNs. findAll() returns defensive copies, so we only
+        // need the SSN strings from them – the objects themselves are not used further.
+        java.util.List<String> ssns = userStore.findAll().stream()
+                .map(User::getSsn)
+                .collect(java.util.stream.Collectors.toList());
+
+        for (String ssn : ssns) {
+            ReentrantLock lock = lockFor(ssn);
+            lock.lock();
+            try {
+                // Re-fetch under the lock to get the absolute latest state.
+                java.util.Optional<User> maybeUser = userStore.findBySsn(ssn);
+                if (!maybeUser.isPresent()) {
+                    // User was deleted between the snapshot and lock acquisition – skip.
+                    continue;
+                }
+                recalculateAndPersist(maybeUser.get());
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
 }

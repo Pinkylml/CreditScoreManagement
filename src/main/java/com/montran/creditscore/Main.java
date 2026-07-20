@@ -7,6 +7,7 @@ import com.montran.creditscore.domain.model.User;
 import com.montran.creditscore.domain.port.outbound.UserStore;
 import com.montran.creditscore.infrastructure.persistence.PersistenceRegistry;
 import com.montran.creditscore.service.CreditScoreEngine;
+import com.montran.creditscore.service.PeriodicScoreUpdater;
 import com.montran.creditscore.service.notification.CreditEventPublisher;
 import com.montran.creditscore.service.notification.EmailNotificationListener;
 import com.montran.creditscore.service.notification.SmsNotificationListener;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Application entry point demonstrating five credit-score scenarios.
@@ -24,10 +26,14 @@ import java.util.Date;
  * which is an atomic read-modify-write operation protected by a per-user {@link java.util.concurrent.locks.ReentrantLock}.
  * No external caller manipulates the {@link User} aggregate directly; the engine is the
  * single point of authority over state mutations.</p>
+ *
+ * <p>After the scenarios complete, a {@link PeriodicScoreUpdater} is started to demonstrate
+ * the scheduled batch recalculation requirement. The main thread waits 5 seconds so at
+ * least one periodic run is visible in the console before the updater is stopped.</p>
  */
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         System.out.println("===================================================");
         System.out.println("   INITIALIZING CREDIT SCORE MANAGEMENT SYSTEM     ");
         System.out.println("===================================================\n");
@@ -47,6 +53,22 @@ public class Main {
         runScenarioFive(engine);
 
         demonstrateUserManagement(engine);
+
+        // ---------------------------------------------------------------
+        // Phase 3: Periodic scheduled score recalculation demonstration
+        // ---------------------------------------------------------------
+        System.out.println("\n===================================================");
+        System.out.println("   STARTING PERIODIC SCORE UPDATER (every 2 s)    ");
+        System.out.println("===================================================");
+
+        PeriodicScoreUpdater updater = new PeriodicScoreUpdater(engine);
+        // First run after 1 s, then every 2 s.
+        updater.start(1, 2, TimeUnit.SECONDS);
+
+        System.out.println("[Main] Waiting 5 seconds for at least 2 periodic recalculations...");
+        TimeUnit.SECONDS.sleep(5);
+
+        updater.stop();
 
         System.out.println("\n===================================================");
         System.out.println("               SYSTEM DEMO COMPLETE                ");
