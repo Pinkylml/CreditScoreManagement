@@ -6,5 +6,7 @@ public enum TransactionType {
     MORTGAGE,
     AUTO_LOAN,
     STUDENT_LOAN,
-    LOAN
+    LOAN,
+    /** Represents a hard credit inquiry; used exclusively by the inquiry-penalty calculation. */
+    INQUIRY
 }

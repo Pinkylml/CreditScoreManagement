@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,6 +21,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>Expected scores are taken directly from section 4 of {@code final_exam_6.md}.
  * A tolerance of ±1.0 point is applied because the formula measures "credit age" relative
  * to the current date, which drifts slightly each day the suite runs.</p>
+ *
+ * <p>With the {@link TransactionType#INQUIRY} fix, only explicit {@code INQUIRY}-type records
+ * inside the 2-year window are counted as inquiries. Regular credit instruments
+ * (CREDIT_CARD, MORTGAGE, etc.) never contribute to the inquiry penalty.</p>
  */
 @DisplayName("Credit Score Engine – Exam Scenarios")
 class CreditScoreEngineScenarioTest {
@@ -44,24 +49,30 @@ class CreditScoreEngineScenarioTest {
     // Payment:     (20/20)*35     = 35
     // Age:         (5yr/10)*15    = 7.5  (approx, time-sensitive)
     // Types:       3*2            = 6
-    // Inquiries:   1*-2           = -2
+    // Inquiries:   1*-2           = -2   (1 explicit INQUIRY record within 2 years)
     // Total:       6+35+7.5+6-2  = 52.5
     // -----------------------------------------------------------------------
     @Test
     @DisplayName("Scenario 1 – Excellent history should yield ~52 points (MEDIUM risk)")
     void scenario1_excellentHistory_expectedScoreAndRisk() {
         String ssn = "111-22-3333";
-        User user = new User(ssn, "Jefferson Cando", "Quito, Ecuador", "jeff@example.com", 10_000.0);
+        User user = new User(ssn, "Jefferson Cando", "Quito, Ecuador", "jeff@example.com",
+                new BigDecimal("10000.00"));
         engine.registerUser(user);
 
-        // 20 payments: 19 settled 6 years ago (outside inquiry window), 1 settled 1 year ago (inside window)
+        // 20 on-time payments: 19 settled 6 years ago (outside inquiry window), 1 settled 1 year ago (outside too –
+        // only INQUIRY type triggers the penalty now).
         for (int i = 0; i < 20; i++) {
             int yearsAgo = (i == 0) ? 1 : 6;
-            double amount = 2_000.0 / 20;
+            BigDecimal amount = new BigDecimal("2000.00")
+                    .divide(new BigDecimal("20"), 2, java.math.RoundingMode.HALF_UP);
             TransactionType type = (i % 3 == 0) ? TransactionType.CREDIT_CARD
                     : (i % 3 == 1) ? TransactionType.MORTGAGE : TransactionType.AUTO_LOAN;
             engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 0, type));
         }
+
+        // 1 explicit hard inquiry within the last 2 years → penalty: 1 * -2 = -2
+        engine.addTransaction(ssn, createInquiry(180));
 
         engine.evaluateProfile(ssn);
 
@@ -85,24 +96,27 @@ class CreditScoreEngineScenarioTest {
     // Payment:     (13/15)*35     = 30.33
     // Age:         (8yr/10)*15    = 12   (approx)
     // Types:       4*2            = 8
-    // Inquiries:   0*-2           = 0
+    // Inquiries:   0*-2           = 0    (no INQUIRY records added)
     // Total:       12+30.33+12+8+0 = 62.33
     // -----------------------------------------------------------------------
     @Test
     @DisplayName("Scenario 2 – Good history with late payments should yield ~62 points (MEDIUM risk)")
     void scenario2_goodHistoryWithLatePayments_expectedScoreAndRisk() {
         String ssn = "222-33-4444";
-        User user = new User(ssn, "Alice Smith", "New York, USA", "alice@example.com", 20_000.0);
+        User user = new User(ssn, "Alice Smith", "New York, USA", "alice@example.com",
+                new BigDecimal("20000.00"));
         engine.registerUser(user);
 
         for (int i = 0; i < 15; i++) {
             // All due dates 8 years ago -> outside the 2-year inquiry window -> 0 inquiries.
             int daysLate = (i < 2) ? 45 : 0;        // first 2 are late
-            double amount = 8_000.0 / 15;
+            BigDecimal amount = new BigDecimal("8000.00")
+                    .divide(new BigDecimal("15"), 2, java.math.RoundingMode.HALF_UP);
             TransactionType type = TransactionType.values()[i % 4]; // cycles through 4 types
             engine.addTransaction(ssn, createRecord(amount, 8 * 365, daysLate, type));
         }
 
+        // No INQUIRY records → inquiry penalty = 0
         engine.evaluateProfile(ssn);
 
         User evaluated = store.findBySsn(ssn).orElseThrow(RuntimeException::new);
@@ -121,24 +135,30 @@ class CreditScoreEngineScenarioTest {
     // Payment:     (9/10)*35     = 31.5
     // Age:         (3yr/10)*15   = 4.5  (approx)
     // Types:       2*2           = 4
-    // Inquiries:   3*-2          = -6
+    // Inquiries:   3*-2          = -6   (3 explicit INQUIRY records within 2 years)
     // Total:       27+31.5+4.5+4-6 = 61
     // -----------------------------------------------------------------------
     @Test
     @DisplayName("Scenario 3 – High utilization should yield ~61 points (MEDIUM risk)")
     void scenario3_highUtilization_expectedScoreAndRisk() {
         String ssn = "333-44-5555";
-        User user = new User(ssn, "Robert Johnson", "London, UK", "robert@example.com", 5_000.0);
+        User user = new User(ssn, "Robert Johnson", "London, UK", "robert@example.com",
+                new BigDecimal("5000.00"));
         engine.registerUser(user);
 
         for (int i = 0; i < 10; i++) {
-            // First 3 records are recent (1 year ago -> inside inquiry window).
-            // Remaining 7 are 3 years ago (outside window).
-            int daysAgo = (i < 3) ? 365 : 3 * 365;
+            // All 10 credit transactions are 3 years ago → outside the 2-year window.
+            int daysAgo = 3 * 365;
             int daysLate = (i == 0) ? 60 : 0;       // only first payment is late
-            double amount = 4_500.0 / 10;
+            BigDecimal amount = new BigDecimal("4500.00")
+                    .divide(new BigDecimal("10"), 2, java.math.RoundingMode.HALF_UP);
             TransactionType type = (i % 2 == 0) ? TransactionType.CREDIT_CARD : TransactionType.AUTO_LOAN;
             engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, type));
+        }
+
+        // 3 explicit hard inquiries within the last 2 years (1 year ago) → penalty: 3 * -2 = -6
+        for (int i = 0; i < 3; i++) {
+            engine.addTransaction(ssn, createInquiry(365));
         }
 
         engine.evaluateProfile(ssn);
@@ -159,23 +179,29 @@ class CreditScoreEngineScenarioTest {
     // Payment:     (6/12)*35       = 17.5
     // Age:         (2yr/10)*15     = 3    (approx)
     // Types:       1*2             = 2
-    // Inquiries:   5*-2            = -10
+    // Inquiries:   5*-2            = -10  (5 explicit INQUIRY records within 2 years)
     // Total:       24+17.5+3+2-10  = 36.5
     // -----------------------------------------------------------------------
     @Test
     @DisplayName("Scenario 4 – Poor history should yield ~36 points (HIGH risk)")
     void scenario4_poorHistory_expectedScoreAndRisk() {
         String ssn = "444-55-6666";
-        User user = new User(ssn, "Maria Garcia", "Madrid, Spain", "maria@example.com", 15_000.0);
+        User user = new User(ssn, "Maria Garcia", "Madrid, Spain", "maria@example.com",
+                new BigDecimal("15000.00"));
         engine.registerUser(user);
 
         for (int i = 0; i < 12; i++) {
-            // First 5 records are recent (6 months -> inside inquiry window, counts as inquiries).
-            // Remaining 7 are 2 years ago (boundary - within 2yr window).
-            int daysAgo = (i < 5) ? 180 : 2 * 365;
+            // All 12 credit transactions placed at 2 years ago (boundary edge of 2yr window).
+            int daysAgo = 2 * 365;
             int daysLate = (i < 6) ? 90 : 0;        // first 6 payments are late
-            double amount = 12_000.0 / 12;
+            BigDecimal amount = new BigDecimal("12000.00")
+                    .divide(new BigDecimal("12"), 2, java.math.RoundingMode.HALF_UP);
             engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, TransactionType.CREDIT_CARD));
+        }
+
+        // 5 explicit hard inquiries within the last 2 years (6 months ago) → penalty: 5 * -2 = -10
+        for (int i = 0; i < 5; i++) {
+            engine.addTransaction(ssn, createInquiry(180));
         }
 
         engine.evaluateProfile(ssn);
@@ -196,18 +222,22 @@ class CreditScoreEngineScenarioTest {
     // Payment:     (1/1)*35      = 35
     // Age:         (0.1yr/10)*15  = 0.15 (approx)
     // Types:       1*2           = 2
-    // Inquiries:   1*-2          = -2
+    // Inquiries:   1*-2          = -2   (1 explicit INQUIRY record within 2 years)
     // Total:       3+35+0.15+2-2 = 38.15
     // -----------------------------------------------------------------------
     @Test
     @DisplayName("Scenario 5 – New user should yield ~38 points (HIGH risk)")
     void scenario5_newUser_expectedScoreAndRisk() {
         String ssn = "555-66-7777";
-        User user = new User(ssn, "David Chen", "Tokyo, Japan", "david@example.com", 1_000.0);
+        User user = new User(ssn, "David Chen", "Tokyo, Japan", "david@example.com",
+                new BigDecimal("1000.00"));
         engine.registerUser(user);
 
-        // 1 on-time payment, due 36 days ago -> inside the 2-year inquiry window.
-        engine.addTransaction(ssn, createRecord(100.0, 36, 0, TransactionType.CREDIT_CARD));
+        // 1 on-time payment, due 36 days ago → inside the 2-year window but NOT an inquiry.
+        engine.addTransaction(ssn, createRecord(new BigDecimal("100.00"), 36, 0, TransactionType.CREDIT_CARD));
+
+        // 1 explicit hard inquiry within the last 2 years → penalty: 1 * -2 = -2
+        engine.addTransaction(ssn, createInquiry(36));
 
         engine.evaluateProfile(ssn);
 
@@ -229,7 +259,7 @@ class CreditScoreEngineScenarioTest {
      * and the settlement occurred {@code daysLate} days after the due date.
      * When {@code daysLate == 0} the payment is considered on-time (settlement == dueDate).
      */
-    private static CreditHistoryRecord createRecord(double amount, int daysAgoDue, int daysLate,
+    private static CreditHistoryRecord createRecord(BigDecimal amount, int daysAgoDue, int daysLate,
             TransactionType type) {
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DAY_OF_YEAR, -daysAgoDue);
@@ -239,6 +269,15 @@ class CreditScoreEngineScenarioTest {
         Date settlementDate = cal.getTime();
 
         return new CreditHistoryRecord(null, dueDate, settlementDate, type, amount, TransactionStatus.PAID);
+    }
+
+    /**
+     * Creates a hard-inquiry record (zero monetary value, {@link TransactionType#INQUIRY} type).
+     *
+     * @param daysAgo how many days ago the inquiry occurred
+     */
+    private static CreditHistoryRecord createInquiry(int daysAgo) {
+        return createRecord(BigDecimal.ZERO, daysAgo, 0, TransactionType.INQUIRY);
     }
 
     // -----------------------------------------------------------------------

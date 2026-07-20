@@ -5,6 +5,8 @@ import com.montran.creditscore.domain.port.outbound.UserStore;
 import com.montran.creditscore.infrastructure.persistence.dto.CreditHistoryStorageDto;
 import com.montran.creditscore.infrastructure.persistence.dto.UserStorageDto;
 
+import java.math.BigDecimal;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -138,7 +140,7 @@ public abstract class AbstractFileUserStore implements UserStore {
         dto.setEmail(user.getEmail());
         dto.setCreditScore(user.getCreditScore());
         dto.setRiskLevel(user.getRiskLevel().name());
-        dto.setTotalCreditLimit(user.getTotalCreditLimit());
+        dto.setTotalCreditLimit(user.getTotalCreditLimit().toPlainString());
 
         SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
 
@@ -153,7 +155,7 @@ public abstract class AbstractFileUserStore implements UserStore {
             }
 
             recDto.setTransactionType(record.getTransactionType().name());
-            recDto.setAmount(record.getAmount());
+            recDto.setAmount(record.getAmount().toPlainString());
             recDto.setStatus(record.getStatus().name());
             recDto.setTransactionId(record.getTransactionId());
             recDto.setDueDateStr(sdf.format(record.getDueDate()));
@@ -167,7 +169,8 @@ public abstract class AbstractFileUserStore implements UserStore {
 
     /** Rebuilds a domain User from a deserialized DTO. Throws if a date string is malformed. */
     private User mapToDomain(UserStorageDto dto) {
-        User user = new User(dto.getSsn(), dto.getName(), dto.getAddress(), dto.getEmail(), dto.getTotalCreditLimit());
+        User user = new User(dto.getSsn(), dto.getName(), dto.getAddress(), dto.getEmail(),
+                new BigDecimal(dto.getTotalCreditLimit()));
         user.setCreditScore(dto.getCreditScore());
         user.setRiskLevel(RiskLevel.valueOf(dto.getRiskLevel()));
 
@@ -187,7 +190,7 @@ public abstract class AbstractFileUserStore implements UserStore {
                             dueDate,
                             settlementDate,
                             TransactionType.valueOf(recDto.getTransactionType()),
-                            recDto.getAmount(),
+                            new BigDecimal(recDto.getAmount()),
                             TransactionStatus.valueOf(recDto.getStatus()));
 
                     user.addCreditRecord(record);

@@ -1,5 +1,6 @@
 package com.montran.creditscore.domain.model;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -18,7 +19,7 @@ public class User {
     private double creditScore;
     private RiskLevel riskLevel;
     private final List<CreditHistoryRecord> creditHistory;
-    private double totalCreditLimit;
+    private BigDecimal totalCreditLimit;
     private String email;
 
     /**
@@ -32,11 +33,11 @@ public class User {
      * @throws IllegalArgumentException   if the SSN is null or blank.
      * @throws InvalidCreditDataException if the credit limit is zero or negative.
      */
-    public User(String ssn, String name, String address, String email, double totalCreditLimit) {
+    public User(String ssn, String name, String address, String email, BigDecimal totalCreditLimit) {
         if (ssn == null || ssn.trim().isEmpty()) {
             throw new IllegalArgumentException("A unique, non-blank SSN identifier is mandatory.");
         }
-        if (totalCreditLimit <= 0) {
+        if (totalCreditLimit == null || totalCreditLimit.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidCreditDataException("Total credit limit must be greater than zero.");
         }
         this.ssn = ssn;
@@ -79,7 +80,7 @@ public class User {
         return Collections.unmodifiableList(this.creditHistory);
     }
 
-    public double getTotalCreditLimit() {
+    public BigDecimal getTotalCreditLimit() {
         return totalCreditLimit;
     }
 
@@ -100,7 +101,7 @@ public class User {
         this.riskLevel = riskLevel;
     }
 
-    public void setTotalCreditLimit(double totalCreditLimit) {
+    public void setTotalCreditLimit(BigDecimal totalCreditLimit) {
         this.totalCreditLimit = totalCreditLimit;
     }
 
