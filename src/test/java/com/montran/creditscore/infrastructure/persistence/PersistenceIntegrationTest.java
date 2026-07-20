@@ -49,10 +49,12 @@ class PersistenceIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        // Clean up structural database files after each execution to avoid state
-        // contamination
+        // Clean up structural database files and any temp files left by atomic writes
+        // after each execution to avoid state contamination.
         new File(XML_FILE).delete();
         new File(JSON_FILE).delete();
+        new File(XML_FILE + ".tmp").delete();
+        new File(JSON_FILE + ".tmp").delete();
     }
 
     @Test

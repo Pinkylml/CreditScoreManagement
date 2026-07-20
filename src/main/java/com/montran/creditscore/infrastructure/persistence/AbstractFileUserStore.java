@@ -2,6 +2,7 @@ package com.montran.creditscore.infrastructure.persistence;
 
 import com.montran.creditscore.domain.model.*;
 import com.montran.creditscore.domain.port.outbound.UserStore;
+import com.montran.creditscore.domain.exception.PersistenceException;
 import com.montran.creditscore.infrastructure.persistence.dto.CreditHistoryStorageDto;
 import com.montran.creditscore.infrastructure.persistence.dto.UserStorageDto;
 
@@ -199,7 +200,9 @@ public abstract class AbstractFileUserStore implements UserStore {
 
                     user.addCreditRecord(record);
                 } catch (ParseException e) {
-                    throw new IllegalStateException("Corrupted date format in persistence file.", e);
+                    throw new PersistenceException(
+                            "Corrupted date format in persistence file for transaction '"
+                                    + recDto.getTransactionId() + "'.", e);
                 }
             }
         }

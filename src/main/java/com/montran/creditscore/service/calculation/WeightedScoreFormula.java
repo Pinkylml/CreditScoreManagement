@@ -4,6 +4,7 @@ import com.montran.creditscore.domain.model.CreditHistoryRecord;
 import com.montran.creditscore.domain.model.ScoreConfiguration;
 import com.montran.creditscore.domain.model.TransactionType;
 import com.montran.creditscore.domain.model.User;
+import com.montran.creditscore.domain.exception.CreditCalculationException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,7 +27,8 @@ public class WeightedScoreFormula implements ScoreFormula {
     @Override
     public double calculate(User user, ScoreConfiguration config) {
         if (user == null || config == null) {
-            throw new IllegalArgumentException("User aggregate and ScoreConfiguration cannot be null.");
+            throw new CreditCalculationException(
+                    "User aggregate and ScoreConfiguration must not be null for score calculation.");
         }
 
         List<CreditHistoryRecord> history = user.getCreditHistory();

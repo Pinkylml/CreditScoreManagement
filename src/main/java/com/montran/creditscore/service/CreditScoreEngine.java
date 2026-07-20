@@ -11,6 +11,7 @@ import com.montran.creditscore.service.calculation.ScoreFormula;
 import com.montran.creditscore.service.calculation.WeightedScoreFormula;
 import com.montran.creditscore.service.risk.RiskClassifier;
 import com.montran.creditscore.domain.exception.UserNotFoundException;
+import com.montran.creditscore.domain.exception.DuplicateUserException;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -127,8 +128,7 @@ public class CreditScoreEngine {
         try {
             Optional<User> existingUser = userStore.findBySsn(user.getSsn());
             if (existingUser.isPresent()) {
-                throw new IllegalArgumentException(
-                        "User with SSN " + user.getSsn() + " is already registered.");
+                throw new DuplicateUserException(user.getSsn());
             }
             userStore.save(user);
         } finally {
