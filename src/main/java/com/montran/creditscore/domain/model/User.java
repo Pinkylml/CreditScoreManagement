@@ -50,6 +50,31 @@ public class User {
         this.totalCreditLimit = totalCreditLimit;
     }
 
+    /**
+     * Deep copy constructor – produces an independent {@code User} aggregate with identical state.
+     * The {@code creditHistory} list is fully deep-copied using
+     * {@link CreditHistoryRecord#CreditHistoryRecord(CreditHistoryRecord)} so that no internal
+     * mutable reference is shared between the original and the copy.
+     *
+     * @param source The user to copy. Cannot be null.
+     */
+    public User(User source) {
+        if (source == null) {
+            throw new IllegalArgumentException("Source user cannot be null for copy construction.");
+        }
+        this.ssn = source.ssn;
+        this.name = source.name;
+        this.address = source.address;
+        this.email = source.email;
+        this.creditScore = source.creditScore;
+        this.riskLevel = source.riskLevel;
+        this.totalCreditLimit = source.totalCreditLimit; // BigDecimal is immutable – safe to share
+        this.creditHistory = new ArrayList<>();
+        for (CreditHistoryRecord record : source.creditHistory) {
+            this.creditHistory.add(new CreditHistoryRecord(record));
+        }
+    }
+
     // getters
     public String getSsn() {
         return ssn;

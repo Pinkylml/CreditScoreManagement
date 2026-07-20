@@ -68,14 +68,18 @@ public abstract class AbstractFileUserStore implements UserStore {
                 lock.unlockRead(stamp);
             }
         }
-        return Optional.ofNullable(user);
+        // Return a defensive copy so callers cannot mutate the cached aggregate directly.
+        return (user != null) ? Optional.of(new User(user)) : Optional.empty();
     }
 
     @Override
     public List<User> findAll() {
         long stamp = lock.readLock();
         try {
-            return new ArrayList<>(cache.values());
+            // Return defensive copies so callers cannot mutate the cached aggregates.
+            return cache.values().stream()
+                    .map(User::new)
+                    .collect(Collectors.toList());
         } finally {
             lock.unlockRead(stamp);
         }

@@ -57,6 +57,26 @@ public final class CreditHistoryRecord {
         this.status = status;
     }
 
+    /**
+     * Copy constructor – produces an independent value object with the same state.
+     * {@link BigDecimal} is immutable, so its reference is safely shared.
+     * {@link java.util.Date} fields are deep-copied to preserve the invariant that
+     * external mutation cannot affect the stored record.
+     *
+     * @param source The record to copy. Cannot be null.
+     */
+    public CreditHistoryRecord(CreditHistoryRecord source) {
+        if (source == null) {
+            throw new IllegalArgumentException("Source record cannot be null for copy construction.");
+        }
+        this.transactionId = source.transactionId;
+        this.dueDate = new Date(source.dueDate.getTime());
+        this.settlementDate = (source.settlementDate != null) ? new Date(source.settlementDate.getTime()) : null;
+        this.transactionType = source.transactionType;
+        this.amount = source.amount; // BigDecimal is immutable – safe to share
+        this.status = source.status;
+    }
+
     public String getTransactionId() {
         return this.transactionId;
     }

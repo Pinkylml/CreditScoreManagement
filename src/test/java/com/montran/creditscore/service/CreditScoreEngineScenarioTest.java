@@ -68,11 +68,11 @@ class CreditScoreEngineScenarioTest {
                     .divide(new BigDecimal("20"), 2, java.math.RoundingMode.HALF_UP);
             TransactionType type = (i % 3 == 0) ? TransactionType.CREDIT_CARD
                     : (i % 3 == 1) ? TransactionType.MORTGAGE : TransactionType.AUTO_LOAN;
-            engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 0, type));
+            engine.addTransactionToUser(ssn, createRecord(amount, yearsAgo * 365, 0, type));
         }
 
         // 1 explicit hard inquiry within the last 2 years → penalty: 1 * -2 = -2
-        engine.addTransaction(ssn, createInquiry(180));
+        engine.addTransactionToUser(ssn, createInquiry(180));
 
         engine.evaluateProfile(ssn);
 
@@ -113,7 +113,7 @@ class CreditScoreEngineScenarioTest {
             BigDecimal amount = new BigDecimal("8000.00")
                     .divide(new BigDecimal("15"), 2, java.math.RoundingMode.HALF_UP);
             TransactionType type = TransactionType.values()[i % 4]; // cycles through 4 types
-            engine.addTransaction(ssn, createRecord(amount, 8 * 365, daysLate, type));
+            engine.addTransactionToUser(ssn, createRecord(amount, 8 * 365, daysLate, type));
         }
 
         // No INQUIRY records → inquiry penalty = 0
@@ -153,12 +153,12 @@ class CreditScoreEngineScenarioTest {
             BigDecimal amount = new BigDecimal("4500.00")
                     .divide(new BigDecimal("10"), 2, java.math.RoundingMode.HALF_UP);
             TransactionType type = (i % 2 == 0) ? TransactionType.CREDIT_CARD : TransactionType.AUTO_LOAN;
-            engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, type));
+            engine.addTransactionToUser(ssn, createRecord(amount, daysAgo, daysLate, type));
         }
 
         // 3 explicit hard inquiries within the last 2 years (1 year ago) → penalty: 3 * -2 = -6
         for (int i = 0; i < 3; i++) {
-            engine.addTransaction(ssn, createInquiry(365));
+            engine.addTransactionToUser(ssn, createInquiry(365));
         }
 
         engine.evaluateProfile(ssn);
@@ -196,12 +196,12 @@ class CreditScoreEngineScenarioTest {
             int daysLate = (i < 6) ? 90 : 0;        // first 6 payments are late
             BigDecimal amount = new BigDecimal("12000.00")
                     .divide(new BigDecimal("12"), 2, java.math.RoundingMode.HALF_UP);
-            engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, TransactionType.CREDIT_CARD));
+            engine.addTransactionToUser(ssn, createRecord(amount, daysAgo, daysLate, TransactionType.CREDIT_CARD));
         }
 
         // 5 explicit hard inquiries within the last 2 years (6 months ago) → penalty: 5 * -2 = -10
         for (int i = 0; i < 5; i++) {
-            engine.addTransaction(ssn, createInquiry(180));
+            engine.addTransactionToUser(ssn, createInquiry(180));
         }
 
         engine.evaluateProfile(ssn);
@@ -234,10 +234,10 @@ class CreditScoreEngineScenarioTest {
         engine.registerUser(user);
 
         // 1 on-time payment, due 36 days ago → inside the 2-year window but NOT an inquiry.
-        engine.addTransaction(ssn, createRecord(new BigDecimal("100.00"), 36, 0, TransactionType.CREDIT_CARD));
+        engine.addTransactionToUser(ssn, createRecord(new BigDecimal("100.00"), 36, 0, TransactionType.CREDIT_CARD));
 
         // 1 explicit hard inquiry within the last 2 years → penalty: 1 * -2 = -2
-        engine.addTransaction(ssn, createInquiry(36));
+        engine.addTransactionToUser(ssn, createInquiry(36));
 
         engine.evaluateProfile(ssn);
 
@@ -284,19 +284,24 @@ class CreditScoreEngineScenarioTest {
     // Stubs – keep tests isolated from file I/O and real notification channels
     // -----------------------------------------------------------------------
 
-    /** Fully thread-safe, in-memory implementation of {@link UserStore} for test use. */
+    /** Fully thread-safe, in-memory implementation of {@link UserStore} for test use.
+     * Returns defensive copies from reads to match the contract of
+     * {@link com.montran.creditscore.infrastructure.persistence.AbstractFileUserStore}. */
     private static class InMemoryUserStore implements UserStore {
 
         private final Map<String, User> db = new ConcurrentHashMap<>();
 
         @Override
         public Optional<User> findBySsn(String ssn) {
-            return Optional.ofNullable(db.get(ssn));
+            User user = db.get(ssn);
+            return (user != null) ? Optional.of(new User(user)) : Optional.empty();
         }
 
         @Override
         public List<User> findAll() {
-            return new ArrayList<>(db.values());
+            return db.values().stream()
+                    .map(User::new)
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         @Override

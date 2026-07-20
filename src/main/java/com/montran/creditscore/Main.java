@@ -13,9 +13,18 @@ import com.montran.creditscore.service.notification.SmsNotificationListener;
 import com.montran.creditscore.infrastructure.config.PropertyWeightLoader;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Date;
 
+/**
+ * Application entry point demonstrating five credit-score scenarios.
+ *
+ * <p>All transaction additions go through {@link CreditScoreEngine#addTransactionToUser},
+ * which is an atomic read-modify-write operation protected by a per-user {@link java.util.concurrent.locks.ReentrantLock}.
+ * No external caller manipulates the {@link User} aggregate directly; the engine is the
+ * single point of authority over state mutations.</p>
+ */
 public class Main {
 
     public static void main(String[] args) {
@@ -57,17 +66,18 @@ public class Main {
         // i==0 → 1 year ago (within inquiry window); rest → 6 years ago (outside window).
         for (int i = 0; i < 20; i++) {
             int yearsAgo = (i == 0) ? 1 : 6;
-            BigDecimal amount = new BigDecimal("2000.00").divide(new BigDecimal("20"), 2, java.math.RoundingMode.HALF_UP);
+            BigDecimal amount = new BigDecimal("2000.00").divide(new BigDecimal("20"), 2, RoundingMode.HALF_UP);
             TransactionType type = (i % 3 == 0) ? TransactionType.CREDIT_CARD
                     : (i % 3 == 1) ? TransactionType.MORTGAGE : TransactionType.AUTO_LOAN;
 
             // daysLate=0: settled exactly on the due date → on time
-            engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, 0, type));
+            engine.addTransactionToUser(ssn, createRecord(amount, yearsAgo * 365, 0, type));
         }
 
         // 1 explicit hard inquiry within the last 2 years → penalty -2
-        engine.addTransaction(ssn, createInquiry(180));
+        engine.addTransactionToUser(ssn, createInquiry(180));
 
+        // Final explicit evaluation to log the definitive score with notifications.
         engine.evaluateProfile(ssn);
         System.out.println("Scenario 1 Evaluated.\n");
     }
@@ -82,16 +92,15 @@ public class Main {
         engine.registerUser(user);
 
         for (int i = 0; i < 15; i++) {
-            int yearsAgo = 8;
             // First 2 payments are late (settled 45 days after due), remaining 13 are on time (daysLate=0)
             int daysLate = (i < 2) ? 45 : 0;
-            BigDecimal amount = new BigDecimal("8000.00").divide(new BigDecimal("15"), 2, java.math.RoundingMode.HALF_UP);
+            BigDecimal amount = new BigDecimal("8000.00").divide(new BigDecimal("15"), 2, RoundingMode.HALF_UP);
             TransactionType type = TransactionType.values()[i % 4];
 
-            engine.addTransaction(ssn, createRecord(amount, yearsAgo * 365, daysLate, type));
+            engine.addTransactionToUser(ssn, createRecord(amount, 8 * 365, daysLate, type));
         }
 
-        // No INQUIRY records → 0 inquiries penalty
+        // No INQUIRY records → 0 inquiries penalty.
         engine.evaluateProfile(ssn);
         System.out.println("Scenario 2 Evaluated.\n");
     }
@@ -106,19 +115,17 @@ public class Main {
         engine.registerUser(user);
 
         for (int i = 0; i < 10; i++) {
-            int daysAgo = 3 * 365;
-
             // First payment is late (60 days after due); remaining 9 are on time (daysLate=0)
             int daysLate = (i == 0) ? 60 : 0;
-            BigDecimal amount = new BigDecimal("4500.00").divide(new BigDecimal("10"), 2, java.math.RoundingMode.HALF_UP);
+            BigDecimal amount = new BigDecimal("4500.00").divide(new BigDecimal("10"), 2, RoundingMode.HALF_UP);
             TransactionType type = (i % 2 == 0) ? TransactionType.CREDIT_CARD : TransactionType.AUTO_LOAN;
 
-            engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, type));
+            engine.addTransactionToUser(ssn, createRecord(amount, 3 * 365, daysLate, type));
         }
 
         // 3 explicit hard inquiries within the last 2 years (1 year ago) → penalty 3*-2=-6
         for (int i = 0; i < 3; i++) {
-            engine.addTransaction(ssn, createInquiry(365));
+            engine.addTransactionToUser(ssn, createInquiry(365));
         }
 
         engine.evaluateProfile(ssn);
@@ -135,18 +142,17 @@ public class Main {
         engine.registerUser(user);
 
         for (int i = 0; i < 12; i++) {
-            int daysAgo = 2 * 365;
-
             // First 6 payments are late (90 days after due); last 6 are on time (daysLate=0)
             int daysLate = (i < 6) ? 90 : 0;
-            BigDecimal amount = new BigDecimal("12000.00").divide(new BigDecimal("12"), 2, java.math.RoundingMode.HALF_UP);
+            BigDecimal amount = new BigDecimal("12000.00").divide(new BigDecimal("12"), 2, RoundingMode.HALF_UP);
 
-            engine.addTransaction(ssn, createRecord(amount, daysAgo, daysLate, TransactionType.CREDIT_CARD));
+            engine.addTransactionToUser(ssn,
+                    createRecord(amount, 2 * 365, daysLate, TransactionType.CREDIT_CARD));
         }
 
         // 5 explicit hard inquiries within the last 2 years (6 months ago) → penalty 5*-2=-10
         for (int i = 0; i < 5; i++) {
-            engine.addTransaction(ssn, createInquiry(180));
+            engine.addTransactionToUser(ssn, createInquiry(180));
         }
 
         engine.evaluateProfile(ssn);
@@ -162,11 +168,12 @@ public class Main {
                 new BigDecimal("1000.00"));
         engine.registerUser(user);
 
-        // 1 on-time payment, due 36 days ago → inside the 2-year inquiry window
-        engine.addTransaction(ssn, createRecord(new BigDecimal("100.00"), 36, 0, TransactionType.CREDIT_CARD));
+        // 1 on-time payment, due 36 days ago → inside the 2-year window (not an INQUIRY)
+        engine.addTransactionToUser(ssn,
+                createRecord(new BigDecimal("100.00"), 36, 0, TransactionType.CREDIT_CARD));
 
         // 1 explicit hard inquiry within the last 2 years → penalty -2
-        engine.addTransaction(ssn, createInquiry(36));
+        engine.addTransactionToUser(ssn, createInquiry(36));
 
         engine.evaluateProfile(ssn);
         System.out.println("Scenario 5 Evaluated.\n");
@@ -181,7 +188,7 @@ public class Main {
 
         System.out.println("Adding temporary transaction to be deleted...");
         CreditHistoryRecord tempRecord = createRecord(new BigDecimal("500.00"), 10, 0, TransactionType.LOAN);
-        engine.addTransaction(ssn, tempRecord);
+        engine.addTransactionToUser(ssn, tempRecord);
 
         System.out.println("Deleting transaction: " + tempRecord.getTransactionId());
         engine.deleteTransaction(ssn, tempRecord.getTransactionId());
