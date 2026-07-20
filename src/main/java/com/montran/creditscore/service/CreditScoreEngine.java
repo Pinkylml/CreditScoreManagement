@@ -186,7 +186,7 @@ public class CreditScoreEngine {
     /**
      * Runs a full credit evaluation for a user: calculates the score, assigns a risk level,
      * saves the result, and fires a notification if the risk level changed or the score
-     * shifted by 10+ points.
+     * shifted by 10+ points. Thread-safe: acquires the per-user lock before fetching.
      *
      * @param ssn The user's SSN.
      * @throws UserNotFoundException if the user is not found.
@@ -201,6 +201,19 @@ public class CreditScoreEngine {
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * Returns a defensive copy of the user identified by {@code ssn}, or empty if not found.
+     * This is a read-only convenience method intended for querying current user state
+     * (e.g., reading the score after a transaction update). Does not acquire the per-user lock
+     * because the store's {@link StampedLock} already provides consistent reads.
+     *
+     * @param ssn The SSN to look up.
+     * @return A defensive copy of the user, or {@link java.util.Optional#empty()} if not found.
+     */
+    public java.util.Optional<User> findUser(String ssn) {
+        return userStore.findBySsn(ssn);
     }
 
     // -----------------------------------------------------------------------
