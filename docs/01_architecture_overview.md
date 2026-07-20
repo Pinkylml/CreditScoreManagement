@@ -1,166 +1,91 @@
 # 01. System Architecture Overview
 
-This document outlines the high-level architecture of the **CreditScoreManagement** application. The system is designed using the **Hexagonal Architecture** (also known as **Ports & Adapters**) pattern, ensuring strict separation of concerns, complete decoupling of core business rules from external infrastructure details, and high testability.
+This document outlines the high-level architecture of the **CreditScoreManagement** application. The system strictly follows the **Hexagonal Architecture** (also known as **Ports & Adapters**) pattern to decouple core business logic from infrastructure concerns.
 
 ---
 
 ## 1. Architectural Style: Ports & Adapters (Hexagonal)
 
-The primary goal of Ports & Adapters is to create a clean boundary between the application's core logic and external concerns (databases, user interfaces, serialization frameworks, message queues). 
+The core domain contains pure Java business rules and exposes **Ports** (interfaces) for external interactions. **Adapters** in the infrastructure layer implement these ports to interact with the file system, network, or external frameworks.
 
 ```mermaid
 graph TD
-    %% Define styles
     classDef domain fill:#f9f,stroke:#333,stroke-width:2px;
     classDef ports fill:#bbf,stroke:#333,stroke-width:2px;
     classDef infra fill:#fdd,stroke:#333,stroke-width:2px;
 
-    %% Hexagonal boundaries
-    subgraph CoreDomain ["Core Domain & Services (Pure Java)"]
-        User["User (Aggregate Root)"]:::domain
+    subgraph CoreDomain ["Core Domain & Services"]
+        User["User (Aggregate)"]:::domain
         CHR["CreditHistoryRecord (Value Object)"]:::domain
-        ScoreConfig["ScoreConfiguration (Value Object)"]:::domain
-        ScoreFormula["ScoreFormula (Strategy Interface)"]:::domain
-        WeightedScoreFormula["WeightedScoreFormula (Concrete Strategy)"]:::domain
-        RiskClassifier["RiskClassifier (Classification Service)"]:::domain
-        CreditEventListener["CreditEventListener (Observer Interface)"]:::domain
-        EmailNotificationListener["EmailNotificationListener (Email Observer)"]:::domain
-        SmsNotificationListener["SmsNotificationListener (SMS Observer)"]:::domain
-        CreditEventPublisher["CreditEventPublisher (Publisher / Port Impl)"]:::domain
-        Engine["CreditScoreEngine (Facade Orchestrator)"]:::domain
+        Engine["CreditScoreEngine (Facade)"]:::domain
+        Formula["ScoreFormula (Strategy)"]:::domain
+        PeriodicUpdater["PeriodicScoreUpdater (Daemon)"]:::domain
     end
 
-    subgraph Ports ["Outbound Ports (SPI Interfaces)"]
-        UserStore["UserStore (Interface)"]:::ports
-        NotificationSender["NotificationSender (Interface)"]:::ports
+    subgraph Ports ["Outbound Ports"]
+        UserStore["UserStore (SPI)"]:::ports
+        NotificationSender["NotificationSender (SPI)"]:::ports
     end
 
-    subgraph Infrastructure ["Infrastructure / Adapters"]
-        PersistenceRegistry["PersistenceRegistry (Factory)"]:::infra
-        AbstractFileUserStore["AbstractFileUserStore (Template)"]:::infra
-        XmlUserStore["XmlUserStore (JAXB Adapter)"]:::infra
-        JsonUserStore["JsonUserStore (Gson Adapter)"]:::infra
-        PropertyWeightLoader["PropertyWeightLoader (Config Loader)"]:::infra
+    subgraph Infrastructure ["Infrastructure Adapters"]
+        AbstractStore["AbstractFileUserStore (Template)"]:::infra
+        XmlStore["XmlUserStore (JAXB)"]:::infra
+        JsonStore["JsonUserStore (Gson)"]:::infra
     end
 
-    %% Relationships
     User --> CHR
-    UserStore -.->|references| User
-    AbstractFileUserStore -.->|implements| UserStore
-    XmlUserStore -->|extends| AbstractFileUserStore
-    JsonUserStore -->|extends| AbstractFileUserStore
-    PersistenceRegistry --> XmlUserStore
-    PersistenceRegistry --> JsonUserStore
-    NotificationSender -.->|references| User
-    PropertyWeightLoader -->|creates| ScoreConfig
-    WeightedScoreFormula -.->|implements| ScoreFormula
-    WeightedScoreFormula -->|evaluates| User
-    WeightedScoreFormula -->|evaluates| ScoreConfig
-    RiskClassifier -->|classifies| User
-
-    %% Facade Orchestration wiring
-    Engine -->|delegates to| UserStore
-    Engine -->|delegates to| NotificationSender
-    Engine -->|delegates to| ScoreFormula
-    Engine -->|delegates to| RiskClassifier
-    Engine -->|delegates to| PropertyWeightLoader
-
-    %% Observer wiring
-    CreditEventPublisher -.->|implements| NotificationSender
-    CreditEventPublisher -->|notifies| CreditEventListener
-    EmailNotificationListener -.->|implements| CreditEventListener
-    SmsNotificationListener -.->|implements| CreditEventListener
+    Engine --> UserStore
+    Engine --> NotificationSender
+    PeriodicUpdater --> Engine
+    AbstractStore -.->|implements| UserStore
+    XmlStore -->|extends| AbstractStore
+    JsonStore -->|extends| AbstractStore
 ```
 
 ---
 
 ## 2. Layered Responsibilities
 
-The codebase is organized into three distinct layers, each with explicit dependencies pointing inwards towards the core business domain.
-
-### A. The Core Domain & Service Layer (`com.montran.creditscore.domain` & `com.montran.creditscore.service`)
-* **Responsibility**: Houses all business rules, invariants, definitions, domain state, scoring algorithms, and event notifications.
+### A. The Core Domain Layer
+* **Responsibility**: Contains business rules, aggregate state, scoring logic, and thread-safety orchestration. Has **zero dependencies** on external frameworks.
 * **Key Components**:
-  - `User`: Domain Aggregate Root representing a client profile, managing name, address, email, credit limit, credit score, and risk status.
-  - `CreditHistoryRecord`: Value Object representing an immutable log of a financial transaction with original due dates and settlement dates.
-  - `ScoreConfiguration`: Value Object encapsulating custom mathematical weights and grace periods applied during score evaluations.
-  - `ScoreFormula`: Strategy interface defining the contract for credit scoring calculation algorithms.
-  - `WeightedScoreFormula`: Concrete Strategy implementation executing the standardized scoring algorithms (utilization, payment history, age, type variance, recent inquiries).
-  - `RiskClassifier`: Domain Utility Service classifying calculated scores into risk profiles (`LOW`, `MEDIUM`, `HIGH`).
-  - `CreditEventListener`: Observer interface defining the receipt contract for profile alerts.
-  - `EmailNotificationListener` & `SmsNotificationListener`: Concrete Observer implementations simulating network-based email and SMS delivery gateways.
-  - `CreditEventPublisher`: Subject component acting as the concrete implementation of the outbound port `NotificationSender`, distributing alerts asynchronously to registered observers.
-  - [CreditScoreEngine](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/CreditScoreEngine.java): Facade orchestrator offering a unified interface to register profiles, append transaction logs, evaluate scores, classify risks, and trigger notifications asynchronously.
-  - `RiskLevel`, `TransactionStatus`, `TransactionType`: Domain-specific enumerations defining state bounds.
-* **Inward Dependency Constraint**: This layer has **zero dependencies** on external frameworks (e.g., JAXB, Gson), file systems, or networking libraries. It is built using pure Java standard library features.
+  - `User`: The aggregate root protecting credit history invariants. Uses **defensive copying** in its constructor to prevent reference leaking.
+  - `CreditScoreEngine`: The primary orchestrator handling per-user locking and atomic read-modify-write transactions.
+  - `WeightedScoreFormula`: Implements the `ScoreFormula` strategy to evaluate utilization, payment history, credit age, types, and inquiries.
+  - `PeriodicScoreUpdater`: A background daemon executing scheduled batch evaluations.
 
-### B. The Ports Layer (`com.montran.creditscore.domain.port`)
-* **Responsibility**: Defines boundary abstractions (contracts) for communication between the domain and the outside world.
+### B. The Ports Layer
+* **Responsibility**: Defines the system boundary via abstractions.
 * **Key Components**:
-  - `UserStore`: Outbound Port (SPI) declaring persistence actions (`save`, `findBySsn`, `findAll`, `deleteBySsn`).
-  - `NotificationSender`: Outbound Port declaring messaging actions (`sendNotification`).
-* **Inward Dependency Constraint**: Interface definitions only refer to core domain types.
+  - `UserStore`: Contract for fetching, saving, and querying user profiles.
+  - `NotificationSender`: Contract for asynchronous user alerting.
 
-### C. The Infrastructure Layer (`com.montran.creditscore.infrastructure`)
-* **Responsibility**: Provides concrete adapters implementing the Port interfaces, handling actual interactions with disk files, formats, frameworks, and third-party libraries.
+### C. The Infrastructure Layer
+* **Responsibility**: Provides concrete adapters for physical storage and configuration.
 * **Key Components**:
-  - `XmlUserStore`: A concrete persistence adapter that marshals and unmarshals XML documents using the **JAXB** architecture.
-  - `JsonUserStore`: A concrete persistence adapter that handles serialized JSON document operations using the **Google Gson** library.
-  - `dto/` Package: Flat Data Transfer Objects (`UserStorageDto`, `SystemContainerDto`, `CreditHistoryStorageDto`) decorated with serialization metadata. These prevent infrastructure requirements (such as zero-argument constructors or JAXB annotations) from polluting the domain models.
-  - `PersistenceRegistry`: A registry facilitating the runtime selection of the storage adapter based on configuration parameters.
-  - `PropertyWeightLoader`: Configuration component responsible for loading mathematical parameters and default weights dynamically from classpath files.
+  - `XmlUserStore` & `JsonUserStore`: Concrete persistence engines. Both implement **atomic temp-and-swap** file writing to prevent data corruption.
+  - `PersistenceRegistry`: A factory mapping configured settings to the correct adapter.
 
 ---
 
-## 3. Technology Stack
+## 3. Concurrency & State Management
 
-* **Language**: Java 8 (source/target compatibility `1.8`)
-* **Build System**: Gradle
-* **Serialization Libraries**:
-  - **JAXB** (`javax.xml.bind`): For XML file structure marshalling.
-  - **Google Gson (v2.10.1)**: For JSON structure serialization.
-* **Testing Framework**: JUnit 5 (JUnit Jupiter)
-* **Concurrency Primitives**: `java.util.concurrent` (specifically `StampedLock`, `ConcurrentHashMap`)
+A cornerstone of the application is its rigorous thread-safety strategy, ensuring data integrity during high-throughput operations.
 
----
+### A. Per-User Locking (`ReentrantLock`)
+The `CreditScoreEngine` enforces strict atomicity using a `ConcurrentHashMap<String, ReentrantLock>`. Every state-mutating operation (e.g., adding a transaction via `addTransactionToUser`) follows a guaranteed atomic read-modify-write workflow:
+1. Acquire the exclusive `ReentrantLock` for the user's SSN.
+2. Fetch a fresh copy of the user from the `UserStore`.
+3. Mutate the aggregate, recalculate the score, and persist back to the store.
+4. Release the lock.
 
-## 4. Key Data & Control Flows
+This guarantees that concurrent operations on the *same* user are serialized safely, while operations on *different* users execute fully in parallel.
 
-### Save/Write Scenario
-1. The client code invokes `save(User)` on the configured adapter.
-2. The adapter acquires a **Write Lock** (`StampedLock`).
-3. The domain aggregate `User` is mapped to its DTO representation (`UserStorageDto`).
-4. The DTO list is passed to the concrete implementation of `writeToFile(List<UserStorageDto>)`.
-5. The list is serialized to the physical file system (either JSON or XML format).
-6. The Write Lock is unlocked.
+### B. Cache Boundary Immutability (Defensive Copies)
+To prevent reference-leaking and accidental state mutation outside the locking bounds, the persistence cache strictly enforces immutability at its boundary.
+- When `AbstractFileUserStore.findBySsn()` or `findAll()` is called, it returns a **defensive deep copy** of the cached aggregate.
+- Modifying a returned `User` object has zero effect on the internal cache until it is explicitly passed back into `save()`.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client as "Client App"
-    participant Adapter as "UserStore Adapter"
-    participant Cache as "Concurrent Memory Cache"
-    participant DTO as "DTO Mapper"
-    participant Disk as "Physical File"
-
-    Client->>Adapter: save(User)
-    activate Adapter
-    Adapter->>Adapter: Acquire Write Lock (StampedLock)
-    Adapter->>Cache: put(ssn, User)
-    Adapter->>DTO: mapToDto(User)
-    activate DTO
-    DTO-->>Adapter: UserStorageDto
-    deactivate DTO
-    Adapter->>Disk: "writeToFile(List<UserStorageDto>)"
-    Adapter->>Adapter: Release Write Lock
-    Adapter-->>Client: void
-    deactivate Adapter
-```
-
----
-
-## 5. Architectural Benefits
-
-1. **Independent Adaptability**: The XML persistence adapter can be swapped out for a JSON persistence adapter or a SQL database driver without altering a single line of code in the core business rules.
-2. **Decoupled Data Shapes**: Core domain entities preserve immutable collections, custom constructors, and business invariant validations. The DTOs preserve mutable properties, default constructors, and serialization annotations, keeping both concerns completely separate.
-3. **High Testability**: Since the business rules depend entirely on interfaces (ports), unit tests can easily mock out the adapters, allowing fast, isolated, and reliable test suites.
+### C. Background Processing (`PeriodicScoreUpdater`)
+Batch calculations run on a dedicated single-threaded `ScheduledExecutorService` daemon thread managed by `PeriodicScoreUpdater`.
+To safely interact with live user traffic, the updater fetches a defensive snapshot of all known SSNs and iterates through them. For each SSN, it acquires the individual `ReentrantLock`, fetches the freshest state, evaluates it, and unlocks—ensuring the batch job perfectly respects the atomic per-user locking constraints.

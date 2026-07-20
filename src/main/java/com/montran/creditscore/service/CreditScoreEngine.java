@@ -11,19 +11,41 @@ import com.montran.creditscore.service.calculation.ScoreFormula;
 import com.montran.creditscore.service.calculation.WeightedScoreFormula;
 import com.montran.creditscore.service.risk.RiskClassifier;
 import com.montran.creditscore.domain.exception.UserNotFoundException;
+import com.montran.creditscore.domain.exception.DuplicateUserException;
 
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Facade that exposes all credit management use cases to the outside world.
  * Coordinates user registration, transaction recording, score evaluation,
  * risk classification, persistence, and event notifications.
+ *
+ * <h3>Thread Safety</h3>
+ * <p>All state-mutating operations are protected by a per-user {@link ReentrantLock} keyed
+ * on the SSN. This allows full concurrency between independent users while serialising
+ * concurrent writes to the same user. The pattern is:</p>
+ * <ol>
+ *   <li>Acquire {@code userLocks.computeIfAbsent(ssn, ...)} lock.</li>
+ *   <li>Inside a {@code try/finally}: fetch (defensive copy from store), mutate, save.</li>
+ *   <li>Release lock in {@code finally}.</li>
+ * </ol>
+ * <p>The store itself returns defensive copies on every read, so the engine works on an
+ * independent snapshot; no external caller can mutate the cache unless {@code save()} is called.</p>
  */
 public class CreditScoreEngine {
 
     private final UserStore userStore;
     private final NotificationSender notificationSender;
     private final ScoreFormula scoreFormula;
+
+    /**
+     * Per-user locks that serialise concurrent write operations on the same SSN.
+     * Entries are added lazily on first access and are never removed (lock instances are cheap
+     * and their lifetime matches the engine instance).
+     */
+    private final ConcurrentHashMap<String, ReentrantLock> userLocks = new ConcurrentHashMap<>();
 
     /**
      * Builds the engine with the required persistence and notification ports.
@@ -42,66 +64,33 @@ public class CreditScoreEngine {
         this.scoreFormula = new WeightedScoreFormula();
     }
 
+    // -----------------------------------------------------------------------
+    // Private helpers
+    // -----------------------------------------------------------------------
+
     /**
-     * Registers a new user. Fails if a user with the same SSN already exists.
-     *
-     * @param user The user to register. Cannot be null.
-     * @throws IllegalArgumentException if user is null or the SSN is already taken.
+     * Returns the canonical {@link ReentrantLock} for the given SSN, creating it atomically
+     * if it does not yet exist.
      */
-    public void registerUser(User user) {
-        if (user == null) {
-            throw new IllegalArgumentException("Cannot register a null user profile.");
-        }
-
-        Optional<User> existingUser = userStore.findBySsn(user.getSsn());
-        if (existingUser.isPresent()) {
-            throw new IllegalArgumentException("User with SSN " + user.getSsn() + " is already registered.");
-        }
-
-        userStore.save(user);
+    private ReentrantLock lockFor(String ssn) {
+        return userLocks.computeIfAbsent(ssn, key -> new ReentrantLock());
     }
 
     /**
-     * Adds a transaction to a user's credit history and persists the change.
-     *
-     * @param ssn    The user's SSN.
-     * @param record The transaction to add. Cannot be null.
-     * @throws UserNotFoundException     if the user is not found.
-     * @throws IllegalArgumentException  if record is null.
+     * Recalculates the credit score and risk level for a user, saves the updated state,
+     * and fires a notification if the risk level changed or the score shifted by ≥10 points.
+     * Must be called while holding the per-user lock.
      */
-    public void addTransaction(String ssn, CreditHistoryRecord record) {
-        if (record == null) {
-            throw new IllegalArgumentException("Cannot append a null transaction record.");
-        }
-
-        User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new UserNotFoundException(ssn));
-
-        user.addCreditRecord(record);
-        userStore.save(user);
-    }
-
-    /**
-     * Runs a full credit evaluation for a user: calculates the score, assigns a risk level,
-     * saves the result, and fires a notification if the risk level changed or the score
-     * shifted by 10+ points.
-     *
-     * @param ssn The user's SSN.
-     * @throws UserNotFoundException if the user is not found.
-     */
-    public void evaluateProfile(String ssn) {
-        User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new UserNotFoundException(ssn));
-
+    private void recalculateAndPersist(User user) {
         double previousScore = user.getCreditScore();
         RiskLevel previousRisk = user.getRiskLevel();
 
         ScoreConfiguration config = PropertyWeightLoader.loadWeights();
-
         double newScore = scoreFormula.calculate(user, config);
         user.setCreditScore(newScore);
 
-        RiskLevel newRisk = RiskClassifier.classify(newScore, config.getRiskThresholdLow(), config.getRiskThresholdMedium());
+        RiskLevel newRisk = RiskClassifier.classify(newScore,
+                config.getRiskThresholdLow(), config.getRiskThresholdMedium());
         user.setRiskLevel(newRisk);
 
         userStore.save(user);
@@ -119,6 +108,34 @@ public class CreditScoreEngine {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // User lifecycle
+    // -----------------------------------------------------------------------
+
+    /**
+     * Registers a new user. Fails if a user with the same SSN already exists.
+     *
+     * @param user The user to register. Cannot be null.
+     * @throws IllegalArgumentException if user is null or the SSN is already taken.
+     */
+    public void registerUser(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("Cannot register a null user profile.");
+        }
+
+        ReentrantLock lock = lockFor(user.getSsn());
+        lock.lock();
+        try {
+            Optional<User> existingUser = userStore.findBySsn(user.getSsn());
+            if (existingUser.isPresent()) {
+                throw new DuplicateUserException(user.getSsn());
+            }
+            userStore.save(user);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /**
      * Permanently removes a user from the store.
      *
@@ -126,14 +143,22 @@ public class CreditScoreEngine {
      * @throws IllegalArgumentException if the user is not found.
      */
     public void deleteUser(String ssn) {
-        boolean deleted = userStore.deleteBySsn(ssn);
-        if (!deleted) {
-            throw new IllegalArgumentException("User with SSN " + ssn + " could not be found for deletion.");
+        ReentrantLock lock = lockFor(ssn);
+        lock.lock();
+        try {
+            boolean deleted = userStore.deleteBySsn(ssn);
+            if (!deleted) {
+                throw new IllegalArgumentException(
+                        "User with SSN " + ssn + " could not be found for deletion.");
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
     /**
      * Updates a user's name, address, and email. Null or blank values are ignored.
+     * The change is persisted atomically under the user's lock.
      *
      * @param ssn        The user's SSN.
      * @param newName    Updated name.
@@ -142,42 +167,203 @@ public class CreditScoreEngine {
      * @throws UserNotFoundException if the user is not found.
      */
     public void editUser(String ssn, String newName, String newAddress, String newEmail) {
-        User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new UserNotFoundException(ssn));
-        user.updateProfile(newName, newAddress, newEmail);
-        userStore.save(user);
+        ReentrantLock lock = lockFor(ssn);
+        lock.lock();
+        try {
+            User user = userStore.findBySsn(ssn)
+                    .orElseThrow(() -> new UserNotFoundException(ssn));
+            user.updateProfile(newName, newAddress, newEmail);
+            userStore.save(user);
+        } finally {
+            lock.unlock();
+        }
     }
 
+    // -----------------------------------------------------------------------
+    // Score evaluation
+    // -----------------------------------------------------------------------
+
     /**
-     * Removes a specific transaction from a user's credit history.
+     * Runs a full credit evaluation for a user: calculates the score, assigns a risk level,
+     * saves the result, and fires a notification if the risk level changed or the score
+     * shifted by 10+ points. Thread-safe: acquires the per-user lock before fetching.
      *
-     * @param ssn           The user's SSN.
-     * @param transactionId The ID of the transaction to remove.
+     * @param ssn The user's SSN.
      * @throws UserNotFoundException if the user is not found.
      */
-    public void deleteTransaction(String ssn, String transactionId) {
-        User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new UserNotFoundException(ssn));
-        boolean removed = user.removeCreditRecord(transactionId);
-        if (removed) {
-            userStore.save(user);
+    public void evaluateProfile(String ssn) {
+        ReentrantLock lock = lockFor(ssn);
+        lock.lock();
+        try {
+            User user = userStore.findBySsn(ssn)
+                    .orElseThrow(() -> new UserNotFoundException(ssn));
+            recalculateAndPersist(user);
+        } finally {
+            lock.unlock();
         }
     }
 
     /**
-     * Replaces a specific transaction in a user's credit history with updated data.
+     * Returns a defensive copy of the user identified by {@code ssn}, or empty if not found.
+     * This is a read-only convenience method intended for querying current user state
+     * (e.g., reading the score after a transaction update). Does not acquire the per-user lock
+     * because the store's {@link StampedLock} already provides consistent reads.
+     *
+     * @param ssn The SSN to look up.
+     * @return A defensive copy of the user, or {@link java.util.Optional#empty()} if not found.
+     */
+    public java.util.Optional<User> findUser(String ssn) {
+        return userStore.findBySsn(ssn);
+    }
+
+    // -----------------------------------------------------------------------
+    // Transaction management  (atomic read-modify-write under per-user lock)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Atomically appends a transaction to a user's credit history, then re-evaluates
+     * the credit score and risk level under the user's exclusive lock.
+     *
+     * <p>Lifecycle under lock:
+     * <ol>
+     *   <li>Fetch a defensive copy from the store.</li>
+     *   <li>Add the record to the copy.</li>
+     *   <li>Recalculate score + risk and persist.</li>
+     * </ol></p>
+     *
+     * @param ssn    The user's SSN.
+     * @param record The transaction to add. Cannot be null.
+     * @throws UserNotFoundException    if the user is not found.
+     * @throws IllegalArgumentException if record is null.
+     */
+    public void addTransactionToUser(String ssn, CreditHistoryRecord record) {
+        if (record == null) {
+            throw new IllegalArgumentException("Cannot append a null transaction record.");
+        }
+
+        ReentrantLock lock = lockFor(ssn);
+        lock.lock();
+        try {
+            User user = userStore.findBySsn(ssn)
+                    .orElseThrow(() -> new UserNotFoundException(ssn));
+            user.addCreditRecord(record);
+            recalculateAndPersist(user);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Backward-compatible alias for {@link #addTransactionToUser(String, CreditHistoryRecord)}.
+     * Kept so that existing call sites compile without changes.
+     *
+     * @param ssn    The user's SSN.
+     * @param record The transaction to add. Cannot be null.
+     */
+    public void addTransaction(String ssn, CreditHistoryRecord record) {
+        addTransactionToUser(ssn, record);
+    }
+
+    /**
+     * Atomically replaces a specific transaction in a user's credit history, then
+     * re-evaluates the credit score and risk level under the user's exclusive lock.
      *
      * @param ssn           The user's SSN.
      * @param transactionId The ID of the transaction to replace.
      * @param updatedRecord The new transaction data.
      * @throws UserNotFoundException if the user is not found.
      */
+    public void updateTransactionForUser(String ssn, String transactionId,
+            CreditHistoryRecord updatedRecord) {
+        ReentrantLock lock = lockFor(ssn);
+        lock.lock();
+        try {
+            User user = userStore.findBySsn(ssn)
+                    .orElseThrow(() -> new UserNotFoundException(ssn));
+            boolean updated = user.updateCreditRecord(transactionId, updatedRecord);
+            if (updated) {
+                recalculateAndPersist(user);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Backward-compatible alias for
+     * {@link #updateTransactionForUser(String, String, CreditHistoryRecord)}.
+     *
+     * @param ssn           The user's SSN.
+     * @param transactionId The ID of the transaction to replace.
+     * @param updatedRecord The new transaction data.
+     */
     public void editTransaction(String ssn, String transactionId, CreditHistoryRecord updatedRecord) {
-        User user = userStore.findBySsn(ssn)
-                .orElseThrow(() -> new UserNotFoundException(ssn));
-        boolean updated = user.updateCreditRecord(transactionId, updatedRecord);
-        if (updated) {
-            userStore.save(user);
+        updateTransactionForUser(ssn, transactionId, updatedRecord);
+    }
+
+    /**
+     * Atomically removes a specific transaction from a user's credit history and
+     * re-evaluates the credit score under the user's exclusive lock.
+     *
+     * @param ssn           The user's SSN.
+     * @param transactionId The ID of the transaction to remove.
+     * @throws UserNotFoundException if the user is not found.
+     */
+    public void deleteTransaction(String ssn, String transactionId) {
+        ReentrantLock lock = lockFor(ssn);
+        lock.lock();
+        try {
+            User user = userStore.findBySsn(ssn)
+                    .orElseThrow(() -> new UserNotFoundException(ssn));
+            boolean removed = user.removeCreditRecord(transactionId);
+            if (removed) {
+                recalculateAndPersist(user);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Batch / scheduled operations
+    // -----------------------------------------------------------------------
+
+    /**
+     * Re-evaluates the credit score and risk level for <em>every</em> user in the store.
+     * Intended to be called on a periodic schedule (e.g., by {@link PeriodicScoreUpdater}).
+     *
+     * <h4>Concurrency guarantee</h4>
+     * <ol>
+     *   <li>A snapshot of all SSNs is collected first (each element is already a defensive
+     *       copy so it is safe to iterate outside any lock).</li>
+     *   <li>For each SSN the per-user {@link ReentrantLock} is acquired.</li>
+     *   <li>Inside the {@code try/finally} the user is <em>re-fetched</em> from the store to
+     *       guarantee we operate on the freshest state (another thread may have mutated the
+     *       user between the snapshot and the lock acquisition).</li>
+     *   <li>Users deleted between the snapshot and lock acquisition are silently skipped.</li>
+     * </ol>
+     */
+    public void recalculateAllUsers() {
+        // Take a snapshot of all current SSNs. findAll() returns defensive copies, so we only
+        // need the SSN strings from them – the objects themselves are not used further.
+        java.util.List<String> ssns = userStore.findAll().stream()
+                .map(User::getSsn)
+                .collect(java.util.stream.Collectors.toList());
+
+        for (String ssn : ssns) {
+            ReentrantLock lock = lockFor(ssn);
+            lock.lock();
+            try {
+                // Re-fetch under the lock to get the absolute latest state.
+                java.util.Optional<User> maybeUser = userStore.findBySsn(ssn);
+                if (!maybeUser.isPresent()) {
+                    // User was deleted between the snapshot and lock acquisition – skip.
+                    continue;
+                }
+                recalculateAndPersist(maybeUser.get());
+            } finally {
+                lock.unlock();
+            }
         }
     }
 }

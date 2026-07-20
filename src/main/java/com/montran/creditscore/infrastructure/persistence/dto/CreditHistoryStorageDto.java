@@ -9,6 +9,9 @@ import javax.xml.bind.annotation.XmlType;
  * Flat, mutable representation of a {@link com.montran.creditscore.domain.model.CreditHistoryRecord}
  * used exclusively for file serialization. Stores dates as plain strings (yyyy-MM-dd)
  * because JAXB and Gson cannot natively handle {@code java.util.Date}.
+ * The {@code amount} field is stored as a plain {@link String} so that the full decimal
+ * precision of a {@link java.math.BigDecimal} is preserved round-trip (JAXB/Gson would
+ * silently lose scale if the field were typed as {@code double}).
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "CreditHistoryRecord", propOrder = {
@@ -24,8 +27,9 @@ public class CreditHistoryStorageDto {
     @XmlElement(name = "type")
     private String transactionType;
 
+    /** Stored as a plain string to preserve {@link java.math.BigDecimal} precision without loss. */
     @XmlElement(name = "amount")
-    private double amount;
+    private String amount;
 
     @XmlElement(name = "status")
     private String status;
@@ -52,11 +56,11 @@ public class CreditHistoryStorageDto {
         this.transactionType = transactionType;
     }
 
-    public double getAmount() {
+    public String getAmount() {
         return amount;
     }
 
-    public void setAmount(double amount) {
+    public void setAmount(String amount) {
         this.amount = amount;
     }
 

@@ -1,5 +1,6 @@
 package com.montran.creditscore.domain.model;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -18,7 +19,7 @@ public class User {
     private double creditScore;
     private RiskLevel riskLevel;
     private final List<CreditHistoryRecord> creditHistory;
-    private double totalCreditLimit;
+    private BigDecimal totalCreditLimit;
     private String email;
 
     /**
@@ -32,11 +33,11 @@ public class User {
      * @throws IllegalArgumentException   if the SSN is null or blank.
      * @throws InvalidCreditDataException if the credit limit is zero or negative.
      */
-    public User(String ssn, String name, String address, String email, double totalCreditLimit) {
+    public User(String ssn, String name, String address, String email, BigDecimal totalCreditLimit) {
         if (ssn == null || ssn.trim().isEmpty()) {
             throw new IllegalArgumentException("A unique, non-blank SSN identifier is mandatory.");
         }
-        if (totalCreditLimit <= 0) {
+        if (totalCreditLimit == null || totalCreditLimit.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidCreditDataException("Total credit limit must be greater than zero.");
         }
         this.ssn = ssn;
@@ -47,6 +48,31 @@ public class User {
         this.riskLevel = RiskLevel.HIGH;
         this.creditHistory = new ArrayList<>();
         this.totalCreditLimit = totalCreditLimit;
+    }
+
+    /**
+     * Deep copy constructor – produces an independent {@code User} aggregate with identical state.
+     * The {@code creditHistory} list is fully deep-copied using
+     * {@link CreditHistoryRecord#CreditHistoryRecord(CreditHistoryRecord)} so that no internal
+     * mutable reference is shared between the original and the copy.
+     *
+     * @param source The user to copy. Cannot be null.
+     */
+    public User(User source) {
+        if (source == null) {
+            throw new IllegalArgumentException("Source user cannot be null for copy construction.");
+        }
+        this.ssn = source.ssn;
+        this.name = source.name;
+        this.address = source.address;
+        this.email = source.email;
+        this.creditScore = source.creditScore;
+        this.riskLevel = source.riskLevel;
+        this.totalCreditLimit = source.totalCreditLimit; // BigDecimal is immutable – safe to share
+        this.creditHistory = new ArrayList<>();
+        for (CreditHistoryRecord record : source.creditHistory) {
+            this.creditHistory.add(new CreditHistoryRecord(record));
+        }
     }
 
     // getters
@@ -79,7 +105,7 @@ public class User {
         return Collections.unmodifiableList(this.creditHistory);
     }
 
-    public double getTotalCreditLimit() {
+    public BigDecimal getTotalCreditLimit() {
         return totalCreditLimit;
     }
 
@@ -100,7 +126,7 @@ public class User {
         this.riskLevel = riskLevel;
     }
 
-    public void setTotalCreditLimit(double totalCreditLimit) {
+    public void setTotalCreditLimit(BigDecimal totalCreditLimit) {
         this.totalCreditLimit = totalCreditLimit;
     }
 

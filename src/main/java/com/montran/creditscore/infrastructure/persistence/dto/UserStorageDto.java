@@ -41,8 +41,9 @@ public class UserStorageDto {
     @XmlElement(name = "riskLevel")
     private String riskLevel;
 
+    /** Stored as a plain string to preserve {@link java.math.BigDecimal} precision without loss. */
     @XmlElement(name = "totalCreditLimit")
-    private double totalCreditLimit;
+    private String totalCreditLimit;
 
     @XmlElementWrapper(name = "creditHistory")
     @XmlElement(name = "record")
@@ -104,11 +105,11 @@ public class UserStorageDto {
         this.creditHistory = creditHistory;
     }
 
-    public double getTotalCreditLimit() {
+    public String getTotalCreditLimit() {
         return totalCreditLimit;
     }
 
-    public void setTotalCreditLimit(double totalCreditLimit) {
+    public void setTotalCreditLimit(String totalCreditLimit) {
         this.totalCreditLimit = totalCreditLimit;
     }
 

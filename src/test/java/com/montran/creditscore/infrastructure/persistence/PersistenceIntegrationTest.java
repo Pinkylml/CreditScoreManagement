@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.Optional;
 
@@ -30,7 +31,8 @@ class PersistenceIntegrationTest {
     @BeforeEach
     void setUp() {
         // Initialize a pure Domain Aggregate
-        testUser = new User("111-22-3333", "Jefferson Cando", "Quito, Ecuador", "jefferson@montran.com", 10000.0);
+        testUser = new User("111-22-3333", "Jefferson Cando", "Quito, Ecuador", "jefferson@montran.com",
+                new BigDecimal("10000.00"));
         testUser.setCreditScore(85.5);
         testUser.setRiskLevel(RiskLevel.LOW);
 
@@ -40,17 +42,19 @@ class PersistenceIntegrationTest {
                 new Date(),
                 new Date(),
                 TransactionType.CREDIT_CARD,
-                5000.00,
+                new BigDecimal("5000.00"),
                 TransactionStatus.PAID);
         testUser.addCreditRecord(record);
     }
 
     @AfterEach
     void tearDown() {
-        // Clean up structural database files after each execution to avoid state
-        // contamination
+        // Clean up structural database files and any temp files left by atomic writes
+        // after each execution to avoid state contamination.
         new File(XML_FILE).delete();
         new File(JSON_FILE).delete();
+        new File(XML_FILE + ".tmp").delete();
+        new File(JSON_FILE + ".tmp").delete();
     }
 
     @Test

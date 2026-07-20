@@ -1,5 +1,6 @@
 package com.montran.creditscore.domain.model;
 
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.UUID;
 import com.montran.creditscore.domain.exception.InvalidCreditDataException;
@@ -17,7 +18,7 @@ public final class CreditHistoryRecord {
     private final Date settlementDate;
 
     private final TransactionType transactionType;
-    private final double amount;
+    private final BigDecimal amount;
     private final TransactionStatus status;
 
     /**
@@ -33,7 +34,7 @@ public final class CreditHistoryRecord {
      * @throws InvalidCreditDataException if amount is negative.
      */
     public CreditHistoryRecord(String transactionId, Date dueDate, Date settlementDate, TransactionType transactionType,
-            double amount, TransactionStatus status) {
+            BigDecimal amount, TransactionStatus status) {
         if (dueDate == null) {
             throw new IllegalArgumentException("Transaction due date cannot be null.");
         }
@@ -43,7 +44,7 @@ public final class CreditHistoryRecord {
         if (status == null) {
             throw new IllegalArgumentException("Transaction settlement status cannot be null.");
         }
-        if (amount < 0.0) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new InvalidCreditDataException("Historical financial transaction amount cannot be negative.");
         }
 
@@ -54,6 +55,26 @@ public final class CreditHistoryRecord {
         this.transactionType = transactionType;
         this.amount = amount;
         this.status = status;
+    }
+
+    /**
+     * Copy constructor – produces an independent value object with the same state.
+     * {@link BigDecimal} is immutable, so its reference is safely shared.
+     * {@link java.util.Date} fields are deep-copied to preserve the invariant that
+     * external mutation cannot affect the stored record.
+     *
+     * @param source The record to copy. Cannot be null.
+     */
+    public CreditHistoryRecord(CreditHistoryRecord source) {
+        if (source == null) {
+            throw new IllegalArgumentException("Source record cannot be null for copy construction.");
+        }
+        this.transactionId = source.transactionId;
+        this.dueDate = new Date(source.dueDate.getTime());
+        this.settlementDate = (source.settlementDate != null) ? new Date(source.settlementDate.getTime()) : null;
+        this.transactionType = source.transactionType;
+        this.amount = source.amount; // BigDecimal is immutable – safe to share
+        this.status = source.status;
     }
 
     public String getTransactionId() {
@@ -72,7 +93,7 @@ public final class CreditHistoryRecord {
         return this.transactionType;
     }
 
-    public double getAmount() {
+    public BigDecimal getAmount() {
         return this.amount;
     }
 
