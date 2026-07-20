@@ -1,187 +1,57 @@
 # 02. Structural Design Patterns
 
-This document describes the structural design patterns implemented in the **CreditScoreManagement** system. These patterns govern how classes and interfaces compose to form larger, flexible systems.
+This document describes the structural design patterns implemented in the **CreditScoreManagement** system. These patterns govern how classes and interfaces compose to form larger, flexible systems while preserving strict concurrency safety and clear boundaries.
 
 ---
 
-## 1. Adapter Pattern (Ports & Adapters)
+## 1. Facade Pattern
 
 ### Description & Intent
-The Adapter pattern allows incompatible interfaces to work together. In Hexagonal terms, the ports are the interfaces expected by the core domain, and the adapters are the concrete wrappers translation layers connecting the system to the outside infrastructure.
+The Facade Pattern provides a unified, simplified interface to a complex subsystem. It hides the underlying structural complexities from the client application, offering a single point of interaction.
 
-Here, **`XmlUserStore`** and **`JsonUserStore`** adapt physical file operations (using external libraries JAXB and Gson) to conform to the **`UserStore`** interface required by the core logic.
+In **CreditScoreManagement**, the **`CreditScoreEngine`** acts as the definitive Facade and aggregate orchestrator. Client applications (like `Main.java`) never interact directly with the persistence store, scoring formulas, or locking primitives.
 
-```mermaid
-graph LR
-subgraph CoreDomain ["Core Domain"]
-        Service[Domain Services / Use Cases]
-        UserStore[UserStore Port Interface]
-    end
-
-    subgraph InfrastructureLayer ["Infrastructure Layer"]
-        XmlUserStore[XmlUserStore Adapter]
-        JsonUserStore[JsonUserStore Adapter]
-        JAXB[javax.xml.bind JAXB Engine]
-        Gson[com.google.gson Gson Library]
-    end
-
-    Service --> UserStore
-    XmlUserStore -.->|implements| UserStore
-    JsonUserStore -.->|implements| UserStore
-    XmlUserStore -->|uses| JAXB
-    JsonUserStore -->|uses| Gson
-```
-
-### Adaptation Details:
-- **XML Adapter (`XmlUserStore`)**: Converts raw XML records in `users.xml` to `User` domain entity structures. It delegates serialization parsing to JAXB marshalling utilities.
-- **JSON Adapter (`JsonUserStore`)**: Converts raw JSON text records in `users.json` to `User` domain entity structures. It delegates parsing to the Google Gson serialization engine.
+### Orchestration Responsibilities
+The `CreditScoreEngine` hides massive complexity behind simple API calls (e.g., `addTransactionToUser`):
+1. **Concurrency Orchestration**: It natively manages a `ConcurrentHashMap<String, ReentrantLock>` to guarantee that all operations on a specific user's SSN are strictly atomic. The client is completely unaware of the locking semantics.
+2. **Persistence Orchestration**: It retrieves the user via the `UserStore` and explicitly persists the state back to the store after a successful mutation.
+3. **Calculation Orchestration**: It coordinates the `PropertyWeightLoader` (to get configuration rules), the `ScoreFormula` (to run the math), and the `RiskClassifier` (to categorize the resulting score).
+4. **Notification Orchestration**: It automatically dispatches alerts via the `NotificationSender` if the score drastically changes or the risk category shifts.
 
 ---
 
-## 2. Data Transfer Object (DTO) Pattern
+## 2. Adapter Pattern
 
 ### Description & Intent
-To prevent serialization annotations, reflection constraints, and database-specific requirements from polluting the core Domain layer, the system uses the **Data Transfer Object (DTO)** pattern.
+The Adapter pattern allows incompatible interfaces to work together. In Hexagonal architecture, adapters are the concrete translation layers connecting the system to external physical infrastructure.
 
-The domain entity `User` contains complex invariant checking, thread-safe synchronization locks, and private immutable list collections. In contrast, the DTO classes are lightweight, public, and mutable.
+Here, **`XmlUserStore`** and **`JsonUserStore`** adapt physical file operations (using external libraries like JAXB and Gson) to conform to the **`UserStore`** interface required by the core logic.
 
-### Structural Mapping Table
-
-| Domain Layer (Encapsulated & Immutable) | DTO Layer (Flattened & Mutable) | Purpose |
-|---|---|---|
-| `com.montran.creditscore.domain.model.User` | `com.montran.creditscore.infrastructure.persistence.dto.UserStorageDto` | Encapsulates client details vs. flat, serializable XML/JSON block. |
-| `com.montran.creditscore.domain.model.CreditHistoryRecord` | `com.montran.creditscore.infrastructure.persistence.dto.CreditHistoryStorageDto` | Immutable transaction record vs. mutable serializable data node. |
-| (None: Handled implicitly in collection) | `com.montran.creditscore.infrastructure.persistence.dto.SystemContainerDto` | Structural wrapper representing the root file element (`<creditSystem>`). |
-
-### DTO Structural Interaction:
-The class mapping flows between Domain entities and DTO schemas during database operations:
-
-```mermaid
-classDiagram
-    class User {
-        -String ssn
-        -String name
-        -String address
-        -double creditScore
-        -RiskLevel riskLevel
-        -List~CreditHistoryRecord~ creditHistory
-        +addCreditRecord(CreditHistoryRecord record) void
-    }
-
-    class UserStorageDto {
-        +String ssn
-        +String name
-        +String address
-        +double creditScore
-        +String riskLevel
-        +List~CreditHistoryStorageDto~ creditHistory
-    }
-
-    class AbstractFileUserStore {
-        #mapToDto(User user) UserStorageDto
-        #mapToDomain(UserStorageDto dto) User
-    }
-
-    AbstractFileUserStore ..> User : reads/writes
-    AbstractFileUserStore ..> UserStorageDto : maps to/from
-```
+### Implementation
+- **XML Adapter (`XmlUserStore`)**: Uses Java's built-in JAXB marshallers to write structural XML, implementing a safe, atomic temp-and-swap mechanism (`users.xml.tmp` → `users.xml`) beneath the `UserStore` contract.
+- **JSON Adapter (`JsonUserStore`)**: Uses Google Gson to write serialized JSON, identically hiding the atomic file I/O mechanics from the core application.
 
 ---
 
-## 3. Concurrency Structural Pattern (Locking & Caching)
-
-The abstract adapter structure incorporates concurrency control directly within the store boundary, combining caching with reader-writer isolation:
-
-1. **Memory Caching (`ConcurrentHashMap`)**: Implemented at `AbstractFileUserStore.cache` to reduce disk reads.
-2. **Optimistic Concurrency Locking (`StampedLock`)**: Enforces high-performance thread safety. Instead of heavy synchronized blocks, it performs optimistic reads that validate whether a write occurred during execution. If a validation fails, it falls back to a pessimistic read lock, minimizing blocking in read-heavy applications.
-
-```java
-    @Override
-    public Optional<User> findBySsn(String ssn) {
-        long stamp = lock.tryOptimisticRead();
-        User user = cache.get(ssn);
-        // If a write occurred during our optimistic read, fall back to a strict read lock.
-        if(!lock.validate(stamp)){
-            stamp = lock.readLock();
-            try {
-                user = cache.get(ssn);
-            } finally {
-                lock.unlockRead(stamp);
-            }
-        }
-        return Optional.ofNullable(user);
-    }
-```
-
----
-
-## 4. Facade Design Pattern
+## 3. Data Transfer Object (DTO) Pattern
 
 ### Description & Intent
-The Facade Pattern provides a unified, simplified interface to a set of interfaces in a subsystem. Facade defines a higher-level interface that makes the subsystem easier to use.
+To prevent serialization annotations, reflection constraints, and storage-specific requirements from polluting the core Domain layer, the system strictly separates models using the Data Transfer Object (DTO) pattern.
 
-In **CreditScoreManagement**, **[CreditScoreEngine](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/CreditScoreEngine.java)** acts as a Facade. Instead of forcing the client application to coordinate the database loading (`UserStore`), mathematical configurations loading (`PropertyWeightLoader`), credit calculations (`ScoreFormula`), risk categorization (`RiskClassifier`), saving the updated models, and sending notifications (`NotificationSender`), the client interacts exclusively with `CreditScoreEngine`.
+The domain entity `User` contains complex invariant checking, deep copy constructors, and private lists. In contrast, the DTO classes (`UserStorageDto`, `CreditHistoryStorageDto`) are flat, mutable, and heavily annotated with `@XmlElement` to appease framework parsers.
 
-### Architectural Structure
+The `AbstractFileUserStore` controls the boundary translation between these two shapes, ensuring the domain layer remains perfectly pure.
 
-```mermaid
-classDiagram
-    class CreditScoreEngine {
-        -UserStore userStore
-        -NotificationSender notificationSender
-        -ScoreFormula scoreFormula
-        +CreditScoreEngine(userStore, notificationSender)
-        +registerUser(User user) void
-        +addTransaction(String ssn, CreditHistoryRecord record) void
-        +evaluateProfile(String ssn) void
-        +deleteUser(String ssn) void
-        +editUser(ssn, newName, newAddress, newEmail) void
-        +deleteTransaction(ssn, transactionId) void
-        +editTransaction(ssn, transactionId, updatedRecord) void
-    }
+---
 
-    class UserStore {
-        <<interface>>
-    }
+## 4. Multi-Tier Concurrency Architecture
 
-    class NotificationSender {
-        <<interface>>
-    }
+The system's structural integrity under heavy multi-threading is achieved by separating concurrency into two distinct structural tiers:
 
-    class ScoreFormula {
-        <<interface>>
-    }
-
-    class RiskClassifier {
-        +classify(score) RiskLevel$
-    }
-
-    class PropertyWeightLoader {
-        +loadWeights() ScoreConfiguration$
-    }
-
-    CreditScoreEngine --> UserStore : coordinates
-    CreditScoreEngine --> NotificationSender : coordinates
-    CreditScoreEngine --> ScoreFormula : coordinates
-    CreditScoreEngine ..> RiskClassifier : delegates
-    CreditScoreEngine ..> PropertyWeightLoader : delegates
-```
-
-### Core Orchestration Workflow: `evaluateProfile(String ssn)`
-The facade orchestrates the following operations under a single method call:
-1. **Retrieve**: Obtains the `User` aggregate from [UserStore](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/UserStore.java).
-2. **Configure**: Loads dynamic parameters from [PropertyWeightLoader](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/infrastructure/config/PropertyWeightLoader.java).
-3. **Calculate**: Evaluates score via [ScoreFormula](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/calculation/ScoreFormula.java).
-4. **Classify**: Resolves risk levels via [RiskClassifier](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/service/risk/RiskClassifier.java).
-5. **Persist**: Commits changes back to the database.
-6. **Notify**: Triggers asynchronous alerts via [NotificationSender](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/NotificationSender.java) if states shift.
-
-### Auxiliary Orchestration Workflows
-
-1. **Profile Editing (`editUser`)**:
-   Locates the user by SSN, invokes aggregate profile mutation `user.updateProfile(newName, newAddress, newEmail)` to safely validate and set fields, then saves state back to [UserStore](file:///c:/Users/jcando/projects/Simulacro/CreditScoreManagement/src/main/java/com/montran/creditscore/domain/port/outbound/UserStore.java).
-2. **Transaction Deletion (`deleteTransaction`)**:
-   Locates the user by SSN, delegates deletion to `user.removeCreditRecord(transactionId)`, and saves if successfully removed.
-3. **Transaction Modification (`editTransaction`)**:
-   Locates the user by SSN, delegates substitution to `user.updateCreditRecord(transactionId, updatedRecord)`, and saves if successfully updated.
-
+1. **State Mutation (The Facade Tier)**:
+   As mentioned, `CreditScoreEngine` owns a `ReentrantLock` for every registered SSN. This forces all read-modify-write workflows targeting the same aggregate root into strict serialization.
+2. **Cache Integrity (The Store Tier)**:
+   Beneath the engine, `AbstractFileUserStore` maintains a highly efficient memory cache backed by a `StampedLock`. 
+   - **Optimistic Reads**: High-frequency, lock-free lookups validate cache states cleanly.
+   - **Defensive Copies**: When a cached aggregate is retrieved, the store invokes the domain's deep-copy constructor, preventing any external thread from mutating the shared cache reference.
+   - **Atomic Disk Flushes**: Write operations inside the store hold an exclusive write lock, ensuring the entire cache is safely flushed to disk without intermediate states leaking to other readers.

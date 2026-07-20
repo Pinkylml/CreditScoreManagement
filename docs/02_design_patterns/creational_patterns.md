@@ -4,95 +4,31 @@ This document details the creational design patterns implemented in the **Credit
 
 ---
 
-## 1. Simple Factory Pattern / Factory Method
+## 1. Factory Pattern / Registry
 
 ### Description & Intent
-The system uses a centralized creational abstraction, **`PersistenceRegistry`**, to instantiate and supply the appropriate outbound persistence adapter at runtime based on the requested configuration. This prevents client code from directly instantiating the concrete classes (`XmlUserStore` or `JsonUserStore`) and couples them only to the `UserStore` interface (an Outbound Port in Hexagonal terms).
+The system uses a centralized creational factory, **`PersistenceRegistry`**, to instantiate and supply the appropriate outbound persistence adapter at runtime based on the requested configuration. This prevents client code from directly instantiating the concrete classes (`XmlUserStore` or `JsonUserStore`) and couples them only to the abstract `UserStore` interface (an Outbound Port in Hexagonal Architecture).
 
-### Architectural Structure
+### Implementation Details
 
-The structure of the Factory configuration is shown below:
-
-```mermaid
-classDiagram
-    class UserStore {
-        <<interface>>
-        +save(User user) void
-        +findBySsn(String ssn) Optional~User~
-        +findAll() List~User~
-        +deleteBySsn(String ssn) boolean
-    }
-
-    class AbstractFileUserStore {
-        <<abstract>>
-        #ConcurrentMap cache
-        #StampedLock lock
-        +findBySsn(String ssn) Optional~User~
-        +findAll() List~User~
-        +save(User user) void
-        +deleteBySsn(String ssn) boolean
-        #readFromFile() List~UserStorageDto~*
-        #writeToFile(List dtos) void*
-    }
-
-    class XmlUserStore {
-        -String FILE_PATH
-        #readFromFile() List~UserStorageDto~
-        #writeToFile(List dtos) void
-    }
-
-    class JsonUserStore {
-        -String FILE_PATH
-        -Gson GSON
-        #readFromFile() List~UserStorageDto~
-        #writeToFile(List dtos) void
-    }
-
-    class PersistenceRegistry {
-        +getStore(StorageType type) UserStore$
-    }
-
-    class StorageType {
-        <<enumeration>>
-        XML
-        JSON
-    }
-
-    UserStore <|.. AbstractFileUserStore : implements
-    AbstractFileUserStore <|-- XmlUserStore : extends
-    AbstractFileUserStore <|-- JsonUserStore : extends
-    PersistenceRegistry ..> UserStore : instantiates & returns
-    PersistenceRegistry ..> StorageType : references
-```
-
----
-
-## 2. Code Implementation Detail
-
-### A. Factory Configuration Parameter: `StorageType`
-An enumeration representing the choices of persistence format:
+#### The `StorageType` Enum
+The application uses an enumeration to represent the available physical storage engines:
 ```java
-package com.montran.creditscore.infrastructure.persistence;
-
 public enum StorageType {
     XML,
     JSON
 }
 ```
+This value is loaded at startup from `credit-settings.properties` via the `PropertyWeightLoader`.
 
-### B. Factory Class: `PersistenceRegistry`
-The registry ensures strict initialization:
-1. Direct instantiation is blocked by a `private` constructor throwing `UnsupportedOperationException`.
-2. A static factory method `getStore(StorageType)` processes options using a switch-case tree.
-3. Checks for `null` parameters are enforced to avoid runtime failures.
+#### The `PersistenceRegistry` Class
+The registry enforces strict factory initialization:
+1. Direct instantiation is blocked by a `private` constructor throwing an `UnsupportedOperationException`.
+2. The static factory method `getStore(StorageType)` processes the provided enum option and returns the fully initialized store.
+3. Explicit `null` checks protect the factory from resolving invalid runtime configurations.
 
 ```java
-package com.montran.creditscore.infrastructure.persistence;
-
-import com.montran.creditscore.domain.port.outbound.UserStore;
-
 public final class PersistenceRegistry {
-
     private PersistenceRegistry() {
         throw new UnsupportedOperationException("Utility factory class cannot be instantiated.");
     }
@@ -113,14 +49,8 @@ public final class PersistenceRegistry {
 }
 ```
 
----
+### Architectural Benefits
 
-## 3. Benefits & Trade-offs
-
-### Benefits:
-1. **Low Coupling**: The client application does not import `XmlUserStore` or `JsonUserStore`. It only needs to know about `UserStore` and `StorageType`.
-2. **Encapsulated Initialization**: Any complexity related to file setups, parsing configurations, or serialization caches is hidden behind the factory method.
-3. **Single Point of Configuration**: Adding a new persistence format (e.g., SQL database or memory-based store) only requires updating this factory and adding a new enum value.
-
-### Trade-offs:
-* **Switch Violation of Open/Closed Principle (OCP)**: Adding a new storage type requires modifying the switch block inside `PersistenceRegistry`. However, for a small system, this is highly manageable and self-contained.
+1. **Low Coupling**: The core orchestrators and client application (`Main.java`) do not need to import `XmlUserStore` or `JsonUserStore`. They operate strictly against the `UserStore` abstraction.
+2. **Encapsulated Initialization**: Any complexity related to file setups, framework contexts (e.g. `JAXBContext`), or caching maps is entirely hidden behind the factory method boundary.
+3. **Single Configuration Origin**: Adding a new persistence mechanism (such as a database adapter) requires adding a new `StorageType` enum and one switch case in this registry—respecting isolation and preserving maintainability.
