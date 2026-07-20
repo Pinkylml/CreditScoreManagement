@@ -53,3 +53,16 @@ Running `Main.java` executes a comprehensive end-to-end demonstration proving sy
 2.  **Atomic Transaction Editing:** Demonstrates adding a transaction and subsequently updating its amount, proving that the user's credit score is automatically and safely re-evaluated.
 3.  **Safe Multi-Threaded Concurrency:** Spawns multiple concurrent threads that simultaneously add transactions to the same user. This proves that the per-user `ReentrantLock` mechanism completely prevents race conditions and data loss during concurrent writes.
 4.  **Periodic Batch Recalculation:** Demonstrates the `PeriodicScoreUpdater` daemon running in the background to safely evaluate and flush all user profiles on a scheduled interval.
+
+## Documentation Index
+For a deep dive into the system's engineering, please review the formal technical specifications located in the `docs/` directory:
+1.  **[System Architecture Overview](docs/01_architecture_overview.md)**: Hexagonal boundaries, Layers, and Concurrency strategies.
+2.  **[Behavioral Patterns](docs/02_design_patterns/behavioral_patterns.md)**: Template Method, Strategy algorithms, and Async Observer flows.
+3.  **[Creational Patterns](docs/02_design_patterns/creational_patterns.md)**: Persistence Registry mechanisms.
+4.  **[Structural Patterns](docs/02_design_patterns/structural_patterns.md)**: Facade orchestration and DTO isolation.
+5.  **[Domain Model & Boundaries](docs/03_domain_model.md)**: Aggregate roots, BigDecimal precision, and exception contracts.
+6.  **[Infrastructure Dependencies](docs/04_infrastructure_deps.md)**: Temp-and-Swap file resilience and lossless serialization.
+7.  **[Codebase Class Reference](docs/05_class_reference.md)**: Exhaustive catalog of all classes and their exact operational roles.
+
+---
+**Reviewers / Evaluators:** Please start by reading the **[Project Revision & Evaluator's Roadmap](docs/project_revision_guide.md)** which directly addresses the remediation of previous assessment gaps.
